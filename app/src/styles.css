@@ -1042,7 +1042,6 @@ button:focus-visible {
   grid-template-columns: 1fr 1fr;
   gap: 0;
   margin: 14px 0;
-  border-top: 1px solid #ebefeb;
 }
 .detail-grid > div {
   padding: 11px 0 9px;

@@ -192,6 +192,25 @@ a.list-row:hover {
 .table tr:last-child td {
   border-bottom: 0;
 }
+.rules-table {
+  table-layout: fixed;
+}
+.rules-table td {
+  padding-inline: 12px;
+  vertical-align: middle;
+}
+.rules-table td:first-child {
+  width: 38%;
+  white-space: nowrap;
+}
+.rules-table td:first-child,
+.rules-table td:nth-child(2) {
+  padding-left: 18px;
+}
+.rules-table td:last-child {
+  width: 80px;
+  text-align: center;
+}
 .meter {
   height: 6px;
   overflow: hidden;
@@ -213,6 +232,50 @@ a.list-row:hover {
 }
 .table-scroll {
   overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.table-scroll::-webkit-scrollbar {
+  display: none;
+}
+.table-scroll-progress {
+  position: relative;
+  height: 8px;
+  margin: 6px 17px 10px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+}
+.table-scroll-progress i {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  min-width: 28px;
+  border-radius: inherit;
+  background: var(--border);
+}
+.pasture-table {
+  table-layout: fixed;
+}
+.pasture-table th:first-child {
+  width: 24%;
+}
+.pasture-table th:nth-child(2) {
+  width: 19%;
+}
+.pasture-table th:nth-child(3) {
+  width: 21%;
+}
+.pasture-table th:nth-child(4) {
+  width: 23%;
+}
+.pasture-table th:last-child {
+  width: 13%;
+}
+.pasture-table th:nth-child(2),
+.pasture-table td:nth-child(2) {
+  text-align: center;
 }
 .zone {
   cursor: pointer;
@@ -261,6 +324,84 @@ a.list-row:hover {
 }
 .profile-info .list-row {
   padding-inline: 18px;
+}
+.rotation-dialog {
+  align-items: center;
+  padding: 20px;
+}
+.rotation-dialog .drawer-card {
+  max-height: calc(100svh - 40px);
+  margin: auto;
+  overflow-y: auto;
+  border-radius: 20px;
+}
+.rotation-dialog .close {
+  display: grid;
+  padding: 0;
+  place-items: center;
+  line-height: 0;
+}
+.rotation-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+.rotation-field {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+.rotation-field > span {
+  color: var(--fg-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+.rotation-field input,
+.rotation-field select,
+.rotation-field textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 11px;
+  color: var(--fg);
+  background: var(--bg);
+  font: 13px var(--font-body);
+}
+.rotation-field textarea {
+  resize: vertical;
+  line-height: 1.5;
+}
+.rotation-field input:focus,
+.rotation-field select:focus,
+.rotation-field textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 18%, transparent);
+}
+.rotation-field-full {
+  grid-column: 1 / -1;
+}
+.rotation-number {
+  position: relative;
+}
+.rotation-number input {
+  padding-right: 34px;
+}
+.rotation-number span {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.rotation-form-actions {
+  justify-content: flex-end;
+}
+.rotation-form-actions .btn {
+  min-width: 96px;
 }
 .chip {
   display: inline-flex;
@@ -527,11 +668,8 @@ a.list-row:hover {
   .filter {
     padding-inline: 10px;
   }
-  .table {
+  .table-scroll .table {
     min-width: 610px;
-  }
-  .panel:has(.table) {
-    overflow-x: auto;
   }
   .doctor-card {
     align-items: flex-start;
@@ -549,5 +687,17 @@ a.list-row:hover {
   }
   .list-row {
     padding-inline: 12px;
+  }
+  .rotation-dialog {
+    padding: 12px;
+  }
+  .rotation-form-grid {
+    grid-template-columns: 1fr;
+  }
+  .rotation-field-full {
+    grid-column: auto;
+  }
+  .rotation-form-actions .btn {
+    flex: 1;
   }
 }

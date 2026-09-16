@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { X } from 'lucide-vue-next'
 import PageChrome from '../components/PageChrome.vue'
 
@@ -11,8 +11,38 @@ const zones: Zone[] = [
 ]
 const selected = ref<Zone | null>(null)
 const toast = ref('')
+const tableScroll = ref<HTMLElement | null>(null)
+const tableProgressWidth = ref(100)
+const tableProgressLeft = ref(0)
 let toastTimer: ReturnType<typeof setTimeout> | undefined
+let tableResizeObserver: ResizeObserver | undefined
 function showMessage(message: string) { toast.value = message; if (toastTimer) clearTimeout(toastTimer); toastTimer = setTimeout(() => { toast.value = '' }, 1600) }
+function syncTableProgress() {
+  const scroller = tableScroll.value
+  if (!scroller) return
+  const maxScroll = Math.max(0, scroller.scrollWidth - scroller.clientWidth)
+  tableProgressWidth.value = scroller.scrollWidth > 0
+    ? Math.min(100, (scroller.clientWidth / scroller.scrollWidth) * 100)
+    : 100
+  tableProgressLeft.value = maxScroll > 0
+    ? (scroller.scrollLeft / maxScroll) * (100 - tableProgressWidth.value)
+    : 0
+}
+onMounted(async () => {
+  await nextTick()
+  syncTableProgress()
+  if (typeof ResizeObserver !== 'undefined' && tableScroll.value) {
+    tableResizeObserver = new ResizeObserver(syncTableProgress)
+    tableResizeObserver.observe(tableScroll.value)
+    const table = tableScroll.value.firstElementChild
+    if (table) tableResizeObserver.observe(table)
+  }
+  window.addEventListener('resize', syncTableProgress)
+})
+onBeforeUnmount(() => {
+  tableResizeObserver?.disconnect()
+  window.removeEventListener('resize', syncTableProgress)
+})
 function navigate(view: string) { window.location.hash = view }
 </script>
 
@@ -21,8 +51,8 @@ function navigate(view: string) { window.location.hash = view }
     <main class="content">
       <div class="page-head"><div><div class="eyebrow">PASTURE ZONES</div><h1>草场</h1><p>3 个管理单元 · 载畜与质量实时监测</p></div><span class="date-chip mono">更新于 14:32</span></div>
       <section class="grid-3"><div class="stat-card"><div class="stat-label">优良草场</div><div class="stat-value mono">2<span style="font-size:14px;color:var(--muted);font-family:var(--font-body)"> / 3</span></div><span class="status ok">可放牧</span></div><div class="stat-card"><div class="stat-label">最高压力指数</div><div class="stat-value mono">0.94</div><span class="status warn">北坡 P-A-02</span></div><div class="stat-card"><div class="stat-label">今日建议</div><div class="stat-value" style="font-size:22px">明早轮换</div><span class="status warn">06:00 前</span></div></section>
-      <section class="panel section"><div class="panel-head"><div><div class="panel-title">分区承载概览</div><div class="panel-meta">点击区域查看草层与牲畜数据</div></div><button class="link-btn" @click="showMessage('已生成北坡草场轮换建议')">生成轮换建议</button></div><div class="table-scroll"><table class="table"><thead><tr><th>区域</th><th>质量</th><th>当前 / 上限</th><th>压力</th><th>覆盖度</th></tr></thead><tbody><tr v-for="zone in zones" :key="zone.id" class="zone" @click="selected = zone"><td><strong>{{ zone.name }}</strong><br><span class="mono" style="font-size:11px;color:var(--meta)">{{ zone.id }} · {{ zone.area }}</span></td><td><span class="status" :class="zone.tone">{{ zone.quality }}</span></td><td class="mono">{{ zone.current }}</td><td><span class="mono">{{ zone.pressure }}</span><div class="meter" style="margin-top:6px"><i :class="{ warn: zone.tone === 'warn' }" :style="{ width: `${Number(zone.pressure) * 100}%` }"></i></div></td><td class="mono">{{ zone.coverage }}</td></tr></tbody></table></div></section>
-      <div class="grid-2 section"><section class="panel"><div class="panel-head"><div class="panel-title">草层指标</div><span class="panel-meta">P-A-01 东沟</span></div><div class="stack" style="padding:18px"><div><div class="metric-line"><span>植被覆盖度</span><strong class="mono">75%</strong></div><div class="meter" style="margin-top:8px"><i style="width:75%"></i></div></div><div><div class="metric-line"><span>草层高度</span><strong class="mono">8 cm</strong></div><div class="meter" style="margin-top:8px"><i style="width:62%"></i></div></div><div><div class="metric-line"><span>土壤湿度</span><strong class="mono">28%</strong></div><div class="meter" style="margin-top:8px"><i class="warn" style="width:28%"></i></div></div></div></section><section class="panel"><div class="panel-head"><div class="panel-title">轮换日程</div><span class="panel-meta">未来 3 天</span></div><div class="list"><div class="list-row"><span class="icon-disc">01</span><span class="list-main"><strong>明日 06:00 · 北坡 → 河谷</strong><small>释放北坡压力，预计转移 20 头</small></span><span class="status warn">待确认</span></div><div class="list-row"><span class="icon-disc">02</span><span class="list-main"><strong>后日 07:00 · 东沟巡检</strong><small>复核土壤湿度与围栏状态</small></span><span class="status ok">已安排</span></div></div></section></div>
+      <section class="panel section"><div class="panel-head"><div><div class="panel-title">分区承载概览</div><div class="panel-meta">点击区域查看草层与牲畜数据</div></div><button class="link-btn" @click="showMessage('已生成北坡草场轮换建议')">生成轮换建议</button></div><div ref="tableScroll" class="table-scroll" @scroll.passive="syncTableProgress"><table class="table pasture-table"><thead><tr><th>区域</th><th>质量</th><th>当前 / 上限</th><th>压力</th><th>覆盖度</th></tr></thead><tbody><tr v-for="zone in zones" :key="zone.id" class="zone" @click="selected = zone"><td><strong>{{ zone.name }}</strong><br><span class="mono" style="font-size:11px;color:var(--meta)">{{ zone.id }} · {{ zone.area }}</span></td><td><span class="status" :class="zone.tone">{{ zone.quality }}</span></td><td class="mono">{{ zone.current }}</td><td><span class="mono">{{ zone.pressure }}</span><div class="meter" style="margin-top:6px"><i :class="{ warn: zone.tone === 'warn' }" :style="{ width: `${Number(zone.pressure) * 100}%` }"></i></div></td><td class="mono">{{ zone.coverage }}</td></tr></tbody></table></div><div class="table-scroll-progress" aria-hidden="true"><i :style="{ width: `${tableProgressWidth}%`, left: `${tableProgressLeft}%` }"></i></div></section>
+      <section class="panel section"><div class="panel-head"><div class="panel-title">草层指标</div><span class="panel-meta">P-A-01 东沟</span></div><div class="stack" style="padding:18px"><div><div class="metric-line"><span>植被覆盖度</span><strong class="mono">75%</strong></div><div class="meter" style="margin-top:8px"><i style="width:75%"></i></div></div><div><div class="metric-line"><span>草层高度</span><strong class="mono">8 cm</strong></div><div class="meter" style="margin-top:8px"><i style="width:62%"></i></div></div><div><div class="metric-line"><span>土壤湿度</span><strong class="mono">28%</strong></div><div class="meter" style="margin-top:8px"><i class="warn" style="width:28%"></i></div></div></div></section>
     </main>
     <div class="toast" :class="{ show: toast }">{{ toast }}</div>
     <div class="drawer" :class="{ open: selected }" @click.self="selected = null"><div class="drawer-card"><div class="drawer-head"><h2>草场详情 · {{ selected?.id }}</h2><button class="close" aria-label="关闭" @click="selected = null"><X :size="18" /></button></div><div v-if="selected" class="detail-grid"><div class="detail"><label>区域名称</label><strong>{{ selected.name }}</strong></div><div class="detail"><label>面积</label><strong>{{ selected.area }}</strong></div><div class="detail"><label>质量等级</label><strong>{{ selected.quality }}</strong></div><div class="detail"><label>当前载畜</label><strong>{{ selected.current }}</strong></div><div class="detail"><label>压力指数</label><strong>{{ selected.pressure }}</strong></div><div class="detail"><label>植被覆盖度</label><strong>{{ selected.coverage }}</strong></div></div><div class="drawer-actions"><button class="btn btn-primary" @click="navigate('livestock')">查看牲畜</button><button class="btn btn-secondary" @click="selected = null">关闭</button></div></div></div>
