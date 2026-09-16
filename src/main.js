@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { Line2 } from 'three/addons/lines/Line2.js';
+import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { TileMap } from 'three-tile';
 import { AREAS, MAP_BOUNDS, MAP_CENTER, STATUS } from './config.js';
 import { createLivestock, getAreaMetrics } from './livestock.js';
@@ -49,10 +52,12 @@ controls.maxPolarAngle = Math.PI * 0.48;
 const livestock = createLivestock();
 const animalSprites = [];
 const areaMeshes = [];
+const areaLineMaterials = [];
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const pointerDown = new THREE.Vector2();
 let selectedObject = null;
+let hoveredArea = null;
 let map;
 let terrainAvailable = true;
 let demLabel = 'DEM';
@@ -169,61 +174,56 @@ async function addCenterMarker() {
   scene.add(marker);
 }
 
-function bilinearPoint(polygon, u, v) {
-  const topLon = THREE.MathUtils.lerp(polygon[0][0], polygon[1][0], u);
-  const topLat = THREE.MathUtils.lerp(polygon[0][1], polygon[1][1], u);
-  const bottomLon = THREE.MathUtils.lerp(polygon[3][0], polygon[2][0], u);
-  const bottomLat = THREE.MathUtils.lerp(polygon[3][1], polygon[2][1], u);
-  return [THREE.MathUtils.lerp(topLon, bottomLon, v), THREE.MathUtils.lerp(topLat, bottomLat, v)];
-}
-
 async function createAreaMesh(area) {
-  const segments = 4;
-  const coordinates = [];
-  const uvs = [];
-  for (let row = 0; row <= segments; row += 1) {
-    for (let column = 0; column <= segments; column += 1) {
-      const u = column / segments;
-      const v = row / segments;
-      coordinates.push(bilinearPoint(area.polygon, u, v));
-      uvs.push(u, 1 - v);
-    }
-  }
-  const sampled = await mapWithConcurrency(coordinates, 8, ([longitude, latitude]) => sampleGround(longitude, latitude));
+  const coordinates = area.polygon;
+  const center = coordinates.reduce((sum, [longitude, latitude]) => [sum[0] + longitude, sum[1] + latitude], [0, 0]);
+  center[0] /= coordinates.length;
+  center[1] /= coordinates.length;
+  const sampled = await mapWithConcurrency([center, ...coordinates], 8, ([longitude, latitude]) => sampleGround(longitude, latitude));
   if (sampled.some((point) => !point)) throw new Error(`${area.name}地形采样失败`);
-  const positions = [];
-  sampled.forEach((point) => positions.push(point.x, point.y + 8, point.z));
+  const offset = 14;
+  const centerPoint = sampled[0].clone().add(new THREE.Vector3(0, offset, 0));
+  const boundaryPoints = sampled.slice(1).map((point) => point.clone().add(new THREE.Vector3(0, offset, 0)));
+  const positions = [centerPoint.x, centerPoint.y, centerPoint.z, ...boundaryPoints.flatMap((point) => [point.x, point.y, point.z])];
   const indices = [];
-  for (let row = 0; row < segments; row += 1) {
-    for (let column = 0; column < segments; column += 1) {
-      const a = row * (segments + 1) + column;
-      const b = a + 1;
-      const c = a + segments + 1;
-      const d = c + 1;
-      indices.push(a, c, b, b, c, d);
-    }
+  for (let index = 0; index < boundaryPoints.length; index += 1) {
+    const next = (index + 1) % boundaryPoints.length;
+    indices.push(0, index + 1, next + 1);
   }
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geometry.setIndex(indices);
-  geometry.computeVertexNormals();
   const material = new THREE.MeshBasicMaterial({
     color: area.color,
-    map: area.quality === '禁牧' ? makeStripedTexture() : null,
     transparent: true,
-    opacity: area.quality === '禁牧' ? 0.68 : 0.36,
+    opacity: 0.035,
     depthTest: false,
     depthWrite: false,
-    side: THREE.DoubleSide,
-    polygonOffset: true,
-    polygonOffsetFactor: -2
+    side: THREE.DoubleSide
   });
   const mesh = new THREE.Mesh(geometry, material);
   mesh.renderOrder = 2;
-  mesh.userData = { kind: 'area', area };
+
+  const lineGeometry = new LineGeometry();
+  lineGeometry.setPositions([...boundaryPoints, boundaryPoints[0]].flatMap((point) => [point.x, point.y, point.z]));
+  const lineMaterial = new LineMaterial({
+    color: area.color,
+    linewidth: 3,
+    transparent: true,
+    opacity: 0.94,
+    depthTest: false,
+    depthWrite: false
+  });
+  lineMaterial.resolution.set(innerWidth, innerHeight);
+  areaLineMaterials.push(lineMaterial);
+  const outline = new Line2(lineGeometry, lineMaterial);
+  outline.computeLineDistances();
+  outline.renderOrder = 3;
+  outline.userData = { areaId: area.id };
+  mesh.userData = { kind: 'area', area, outline };
   areaMeshes.push(mesh);
   scene.add(mesh);
+  scene.add(outline);
 }
 
 async function addAreaMeshes() {
@@ -306,6 +306,33 @@ function closeDetails() {
   detailPanel.hidden = true;
 }
 
+function setHoveredArea(areaMesh) {
+  if (hoveredArea === areaMesh) return;
+  if (hoveredArea) {
+    hoveredArea.userData.outline.material.linewidth = 3;
+    hoveredArea.userData.outline.material.opacity = 0.94;
+  }
+  hoveredArea = areaMesh;
+  if (hoveredArea) {
+    hoveredArea.userData.outline.material.linewidth = 6;
+    hoveredArea.userData.outline.material.opacity = 1;
+    openDetails(hoveredArea);
+    renderer.domElement.style.cursor = 'pointer';
+  } else {
+    renderer.domElement.style.cursor = 'grab';
+    if (selectedObject?.userData.kind === 'area') closeDetails();
+  }
+}
+
+function updateHover(event) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const hit = raycaster.intersectObjects(areaMeshes, false)[0]?.object ?? null;
+  setHoveredArea(hit);
+}
+
 function pick(event) {
   const rect = renderer.domElement.getBoundingClientRect();
   pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -318,6 +345,8 @@ function pick(event) {
 }
 
 renderer.domElement.addEventListener('pointerdown', (event) => pointerDown.set(event.clientX, event.clientY));
+renderer.domElement.addEventListener('pointermove', updateHover);
+renderer.domElement.addEventListener('pointerleave', () => setHoveredArea(null));
 renderer.domElement.addEventListener('pointerup', (event) => {
   if (pointerDown.distanceTo(new THREE.Vector2(event.clientX, event.clientY)) < 5) pick(event);
 });
@@ -383,6 +412,7 @@ function resize() {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
+  areaLineMaterials.forEach((material) => material.resolution.set(innerWidth, innerHeight));
 }
 addEventListener('resize', resize);
 
