@@ -28,11 +28,11 @@ button, select { font: inherit; }
 .dot.abnormal { color: #ff5c5c; background: currentColor; }
 .legend-panel hr { margin: 13px 0; border: 0; border-top: 1px solid rgb(139 187 173 / 16%); }
 .area-key { display: flex; align-items: center; gap: 9px; padding: 5px 0; color: #9db7b0; font-size: 11px; }
-.area-color { width: 20px; height: 8px; border-radius: 2px; }
-.area-color.excellent { background: #236b45; }
-.area-color.average { background: #9aaa3f; }
-.area-color.poor { background: #b28b43; }
-.area-color.prohibited { background: repeating-linear-gradient(135deg, #ff5148 0 3px, #7f2525 3px 7px); }
+.area-color { width: 20px; height: 3px; border-radius: 2px; box-shadow: 0 0 6px currentColor; }
+.area-color.excellent { color: #35c978; background: currentColor; }
+.area-color.average { color: #f0cf45; background: currentColor; }
+.area-color.poor { color: #e58b38; background: currentColor; }
+.area-color.prohibited { color: #e04443; background: currentColor; }
 .panel-kicker { margin: 0 0 5px; color: #55dca8; font: 10px ui-monospace, monospace; letter-spacing: .14em; text-transform: uppercase; }
 .icon-button { position: absolute; top: 10px; right: 10px; width: 28px; height: 28px; border: 0; border-radius: 50%; color: #8ca9a1; background: transparent; cursor: pointer; font-size: 20px; }
 .icon-button:hover { color: white; background: rgb(255 255 255 / 8%); }
