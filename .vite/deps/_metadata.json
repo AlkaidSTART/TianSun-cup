@@ -1,0 +1,40 @@
+{
+  "hash": "f6b515a5",
+  "configHash": "c36b2170",
+  "lockfileHash": "0365b57a",
+  "browserHash": "ce26d6a3",
+  "optimized": {
+    "three": {
+      "src": "../../node_modules/three/build/three.module.js",
+      "file": "three.js",
+      "fileHash": "ae3987ab",
+      "needsInterop": false
+    },
+    "three/addons/controls/OrbitControls.js": {
+      "src": "../../node_modules/three/examples/jsm/controls/OrbitControls.js",
+      "file": "three_addons_controls_OrbitControls__js.js",
+      "fileHash": "cdf0c583",
+      "needsInterop": false
+    },
+    "three-tile": {
+      "src": "../../node_modules/three-tile/dist/index.js",
+      "file": "three-tile.js",
+      "fileHash": "bce62696",
+      "needsInterop": false
+    },
+    "three-tile/plugin": {
+      "src": "../../node_modules/three-tile/dist/plugin/index.js",
+      "file": "three-tile_plugin.js",
+      "fileHash": "ca63de99",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "chunk-5WC5E3AR": {
+      "file": "chunk-5WC5E3AR.js"
+    },
+    "chunk-X3XY4GNL": {
+      "file": "chunk-X3XY4GNL.js"
+    }
+  }
+}
