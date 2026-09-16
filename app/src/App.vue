@@ -6,10 +6,12 @@ import DashboardView from './views/DashboardView.vue'
 import LivestockView from './views/LivestockView.vue'
 import PastureView from './views/PastureView.vue'
 import ProfileView from './views/ProfileView.vue'
+import { startRotationScheduleCleanup } from './data/rotationSchedule'
 
 type ViewName = 'dashboard' | 'alerts' | 'livestock' | 'pasture' | 'profile' | 'consultation'
 const validViews: ViewName[] = ['dashboard', 'alerts', 'livestock', 'pasture', 'profile', 'consultation']
 const currentView = ref<ViewName>('dashboard')
+let stopRotationScheduleCleanup: (() => void) | undefined
 
 function readView(): ViewName {
   const hash = window.location.hash.replace(/^#/, '') as ViewName
@@ -27,8 +29,15 @@ function navigate(view: string) {
   else syncView()
 }
 
-onMounted(() => { syncView(); window.addEventListener('hashchange', syncView) })
-onBeforeUnmount(() => window.removeEventListener('hashchange', syncView))
+onMounted(() => {
+  stopRotationScheduleCleanup = startRotationScheduleCleanup()
+  syncView()
+  window.addEventListener('hashchange', syncView)
+})
+onBeforeUnmount(() => {
+  stopRotationScheduleCleanup?.()
+  window.removeEventListener('hashchange', syncView)
+})
 </script>
 
 <template>
