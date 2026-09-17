@@ -183,6 +183,7 @@ body {
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-lg);
   overflow: hidden;
+  padding: 10px;
 }
 .panel-head {
   display: flex;

@@ -330,41 +330,41 @@ a.list-row:hover {
 .profile-info .list-row {
   padding-inline: 18px;
 }
-.rotation-dialog {
+.todo-dialog {
   align-items: center;
   padding: 20px;
 }
-.rotation-dialog .drawer-card {
+.todo-dialog .drawer-card {
   max-height: calc(100svh - 40px);
   margin: auto;
   overflow-y: auto;
   border-radius: 20px;
 }
-.rotation-dialog .close {
+.todo-dialog .close {
   display: grid;
   padding: 0;
   place-items: center;
   line-height: 0;
 }
-.rotation-form-grid {
+.todo-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
   margin-top: 18px;
 }
-.rotation-field {
+.todo-field {
   display: grid;
   gap: 7px;
   min-width: 0;
 }
-.rotation-field > span {
+.todo-field > span {
   color: var(--fg-2);
   font-size: 12px;
   font-weight: 600;
 }
-.rotation-field input,
-.rotation-field select,
-.rotation-field textarea {
+.todo-field input,
+.todo-field select,
+.todo-field textarea {
   width: 100%;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -373,27 +373,27 @@ a.list-row:hover {
   background: var(--bg);
   font: 13px var(--font-body);
 }
-.rotation-field textarea {
+.todo-field textarea {
   resize: vertical;
   line-height: 1.5;
 }
-.rotation-field input:focus,
-.rotation-field select:focus,
-.rotation-field textarea:focus {
+.todo-field input:focus,
+.todo-field select:focus,
+.todo-field textarea:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 18%, transparent);
 }
-.rotation-field-full {
+.todo-field-full {
   grid-column: 1 / -1;
 }
-.rotation-number {
+.todo-number {
   position: relative;
 }
-.rotation-number input {
+.todo-number input {
   padding-right: 34px;
 }
-.rotation-number span {
+.todo-number span {
   position: absolute;
   top: 50%;
   right: 12px;
@@ -402,11 +402,102 @@ a.list-row:hover {
   transform: translateY(-50%);
   pointer-events: none;
 }
-.rotation-form-actions {
+.todo-form-actions {
   justify-content: flex-end;
 }
-.rotation-form-actions .btn {
+.todo-form-actions .btn {
   min-width: 96px;
+}
+.todo-dialog-hint {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.todo-type-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+.todo-type {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  cursor: pointer;
+}
+.todo-type:hover {
+  border-color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 6%, var(--bg));
+}
+.todo-type-copy {
+  min-width: 0;
+}
+.todo-type-copy strong,
+.todo-type-copy small {
+  display: block;
+}
+.todo-type-copy strong {
+  font-size: 13px;
+}
+.todo-type-copy small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+.todo-selected {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.todo-selected-copy {
+  min-width: 0;
+  flex: 1;
+}
+.todo-selected-copy strong,
+.todo-selected-copy small {
+  display: block;
+}
+.todo-selected-copy strong {
+  font-size: 13px;
+}
+.todo-selected-copy small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.icon-disc.type-rotation {
+  color: #a16207;
+  background: #fef3c7;
+}
+.icon-disc.type-inspection {
+  color: #166534;
+  background: #dcfce7;
+}
+.icon-disc.type-vaccination {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+.icon-disc.type-maintenance {
+  color: #9a3412;
+  background: #ffedd5;
+}
+.icon-disc.type-device {
+  color: #6b7280;
+  background: #eef0f2;
+}
+.icon-disc.type-custom {
+  color: #6d28d9;
+  background: #ede9fe;
 }
 .chip {
   display: inline-flex;
@@ -694,16 +785,16 @@ a.list-row:hover {
   .list-row {
     padding-inline: 12px;
   }
-  .rotation-dialog {
+  .todo-dialog {
     padding: 12px;
   }
-  .rotation-form-grid {
+  .todo-form-grid {
     grid-template-columns: 1fr;
   }
-  .rotation-field-full {
+  .todo-field-full {
     grid-column: auto;
   }
-  .rotation-form-actions .btn {
+  .todo-form-actions .btn {
     flex: 1;
   }
 }
