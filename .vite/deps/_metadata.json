@@ -1,0 +1,64 @@
+{
+  "hash": "f6b515a5",
+  "configHash": "c36b2170",
+  "lockfileHash": "0365b57a",
+  "browserHash": "21b269f2",
+  "optimized": {
+    "three": {
+      "src": "../../node_modules/three/build/three.module.js",
+      "file": "three.js",
+      "fileHash": "21cd23c5",
+      "needsInterop": false
+    },
+    "three/addons/controls/OrbitControls.js": {
+      "src": "../../node_modules/three/examples/jsm/controls/OrbitControls.js",
+      "file": "three_addons_controls_OrbitControls__js.js",
+      "fileHash": "b2cc5d90",
+      "needsInterop": false
+    },
+    "three-tile": {
+      "src": "../../node_modules/three-tile/dist/index.js",
+      "file": "three-tile.js",
+      "fileHash": "bdb61c60",
+      "needsInterop": false
+    },
+    "three-tile/plugin": {
+      "src": "../../node_modules/three-tile/dist/plugin/index.js",
+      "file": "three-tile_plugin.js",
+      "fileHash": "81dfebff",
+      "needsInterop": false
+    },
+    "three/addons/lines/Line2.js": {
+      "src": "../../node_modules/three/examples/jsm/lines/Line2.js",
+      "file": "three_addons_lines_Line2__js.js",
+      "fileHash": "176a0c0e",
+      "needsInterop": false
+    },
+    "three/addons/lines/LineGeometry.js": {
+      "src": "../../node_modules/three/examples/jsm/lines/LineGeometry.js",
+      "file": "three_addons_lines_LineGeometry__js.js",
+      "fileHash": "90f5c8b2",
+      "needsInterop": false
+    },
+    "three/addons/lines/LineMaterial.js": {
+      "src": "../../node_modules/three/examples/jsm/lines/LineMaterial.js",
+      "file": "three_addons_lines_LineMaterial__js.js",
+      "fileHash": "4a4a4691",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "chunk-3MFBWNRN": {
+      "file": "chunk-3MFBWNRN.js"
+    },
+    "chunk-BVZ6ZWWT": {
+      "file": "chunk-BVZ6ZWWT.js"
+    },
+    "chunk-5WC5E3AR": {
+      "file": "chunk-5WC5E3AR.js"
+    },
+    "chunk-X3XY4GNL": {
+      "file": "chunk-X3XY4GNL.js"
+    }
+  }
+}

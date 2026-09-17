@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="阿坝智慧放牧三维监测平台" />
+    <title>智慧放牧 3D 监测</title>
+  </head>
+  <body>
+    <main id="app-shell">
+      <div id="scene-container" aria-label="阿坝放牧区三维地图"></div>
+
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark">牧</span>
+          <div><h1>智慧放牧</h1><p>阿坝草地监测中心</p></div>
+        </div>
+        <div class="filters" aria-label="牲畜筛选">
+          <label>状态<select id="status-filter"><option value="all">全部状态</option><option value="normal">正常</option><option value="attention">需关注</option><option value="abnormal">异常</option></select></label>
+          <label>牧户<select id="owner-filter"><option value="all">全部牧户</option><option value="owner-a">扎西家</option><option value="owner-b">卓玛家</option><option value="owner-c">多吉家</option><option value="owner-d">央金家</option></select></label>
+          <span id="visible-count" class="count-badge">0 / 60</span>
+        </div>
+      </header>
+
+      <aside class="legend-panel">
+        <h2>实时态势</h2>
+        <div class="legend-row"><i class="dot normal"></i><span>正常</span><strong id="normal-count">48</strong></div>
+        <div class="legend-row"><i class="dot attention"></i><span>需关注</span><strong id="attention-count">9</strong></div>
+        <div class="legend-row"><i class="dot abnormal"></i><span>异常</span><strong id="abnormal-count">3</strong></div>
+        <hr />
+        <div class="area-key"><i class="area-color excellent"></i>优良</div>
+        <div class="area-key"><i class="area-color average"></i>一般</div>
+        <div class="area-key"><i class="area-color poor"></i>较差</div>
+        <div class="area-key"><i class="area-color prohibited"></i>禁牧</div>
+        <div class="area-key site-key"><i class="site-key-mark"></i>牧民定居点</div>
+        <div class="area-key site-key"><i class="rest-key-mark"></i>夜间休息区</div>
+        <hr />
+        <div class="simulation-panel" aria-label="放牧时间模拟">
+          <div class="simulation-heading"><span>放牧时间</span><strong id="simulation-time-label">06:00 · 出牧</strong></div>
+          <input id="simulation-time" type="range" min="0" max="24" step="0.05" value="6" aria-label="模拟时间" />
+          <div class="simulation-controls">
+            <button id="simulation-toggle" type="button">暂停</button>
+            <label>倍率<select id="simulation-speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
+          </div>
+        </div>
+      </aside>
+
+      <aside id="detail-panel" class="detail-panel" aria-live="polite" hidden>
+        <button id="close-detail" class="icon-button" type="button" title="关闭" aria-label="关闭">×</button>
+        <section id="model-preview" class="model-preview" aria-label="动物模型预览">
+          <div class="model-placeholder">
+            <span class="model-placeholder-icon">◇</span>
+            <span>模型加载中</span>
+            <small>后续接入牲畜 3D 模型</small>
+          </div>
+        </section>
+        <section class="detail-scroll">
+          <p id="detail-kicker" class="panel-kicker"></p>
+          <h2 id="detail-title"></h2>
+          <dl id="detail-content"></dl>
+        </section>
+      </aside>
+
+      <div id="scene-tooltip" class="scene-tooltip" role="status" hidden></div>
+
+      <div id="loading-panel" class="loading-panel">
+        <span class="loader"></span>
+        <strong id="loading-title">正在连接天地图</strong>
+        <span id="loading-message">准备卫星影像与地形高程...</span>
+      </div>
+
+      <footer class="statusbar">
+        <span><i id="service-dot" class="service-dot"></i><span id="service-status">地图服务连接中</span></span>
+        <span>中心 102.000°E / 33.000°N</span>
+        <span>左键旋转 · 滚轮缩放 · 右键平移</span>
+      </footer>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
