@@ -16,9 +16,10 @@
           <div><h1>智慧放牧</h1><p>阿坝草地监测中心</p></div>
         </div>
         <div class="filters" aria-label="牲畜筛选">
-          <label>状态<select id="status-filter"><option value="all">全部状态</option><option value="normal">正常</option><option value="attention">需关注</option><option value="abnormal">异常</option></select></label>
+          <label>状态<select id="status-filter"><option value="all">全部状态</option><option value="normal">正常</option><option value="attention">需关注</option><option value="abnormal">异常</option><option value="offline">掉线</option></select></label>
           <label>牧户<select id="owner-filter"><option value="all">全部牧户</option><option value="owner-a">扎西家</option><option value="owner-b">卓玛家</option><option value="owner-c">多吉家</option><option value="owner-d">央金家</option></select></label>
           <span id="visible-count" class="count-badge">0 / 60</span>
+          <span id="offline-alert" class="offline-alert">0 头牲畜设备掉线</span>
         </div>
       </header>
 
@@ -27,6 +28,7 @@
         <div class="legend-row"><i class="dot normal"></i><span>正常</span><strong id="normal-count">48</strong></div>
         <div class="legend-row"><i class="dot attention"></i><span>需关注</span><strong id="attention-count">9</strong></div>
         <div class="legend-row"><i class="dot abnormal"></i><span>异常</span><strong id="abnormal-count">3</strong></div>
+        <div class="legend-row"><i class="dot offline"></i><span>掉线</span><strong id="offline-count">0</strong></div>
         <hr />
         <div class="area-key"><i class="area-color excellent"></i>优良</div>
         <div class="area-key"><i class="area-color average"></i>一般</div>
@@ -36,8 +38,8 @@
         <div class="area-key site-key"><i class="rest-key-mark"></i>夜间休息区</div>
         <hr />
         <div class="simulation-panel" aria-label="放牧时间模拟">
-          <div class="simulation-heading"><span>放牧时间</span><strong id="simulation-time-label">06:00 · 出牧</strong></div>
-          <input id="simulation-time" type="range" min="0" max="24" step="0.05" value="6" aria-label="模拟时间" />
+          <div class="simulation-heading"><span>放牧时间</span><strong id="simulation-time-label">10:00 · 放牧</strong></div>
+          <input id="simulation-time" type="range" min="0" max="24" step="0.05" value="10" aria-label="模拟时间" />
           <div class="simulation-controls">
             <button id="simulation-toggle" type="button">暂停</button>
             <label>倍率<select id="simulation-speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
