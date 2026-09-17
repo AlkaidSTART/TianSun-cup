@@ -38,6 +38,11 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
 }
+.grid-2-cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
 .stat-card {
   min-height: 116px;
   padding: 16px;
@@ -651,7 +656,8 @@ a.list-row:hover {
   .page-head h1 {
     font-size: 30px;
   }
-  .grid-3 {
+  .grid-3,
+  .grid-2-cards {
     gap: 8px;
   }
   .stat-card {
