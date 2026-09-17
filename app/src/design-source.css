@@ -183,6 +183,7 @@ body {
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-lg);
   overflow: hidden;
+  padding: 10px;
 }
 .panel-head {
   display: flex;
@@ -461,6 +462,10 @@ body {
   display: grid;
   gap: 16px;
 }
+.side-stack {
+  display: grid;
+  gap: 16px;
+}
 .alert-item {
   display: flex;
   gap: 9px;
@@ -507,6 +512,18 @@ body {
 .alert-time {
   font: 10px var(--font-mono);
   color: var(--meta);
+}
+.suggestion {
+  padding: 14px 17px 16px;
+}
+.suggestion-title {
+  font: 600 20px var(--font-display);
+}
+.suggestion-detail {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
 }
 .health {
   padding: 14px 17px;

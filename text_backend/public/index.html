@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#173d2d" />
+    <title>牲畜档案 · 天牧智控后台</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="admin-shell">
+      <aside class="sidebar">
+        <a class="brand" href="/" aria-label="天牧智控管理后台">
+          <span class="brand-mark">牧</span>
+          <span>
+            <strong>天牧智控</strong>
+            <small>乡镇畜牧管理后台</small>
+          </span>
+        </a>
+
+        <nav class="side-nav" aria-label="后台导航">
+          <a href="#overview"><span>01</span>态势概览</a>
+          <a class="active" href="#registry"><span>02</span>牲畜档案</a>
+          <a href="#integration"><span>03</span>数据接入</a>
+        </nav>
+
+        <div class="sidebar-note">
+          <i class="pulse"></i>
+          <div>
+            <strong>小程序数据通道</strong>
+            <span id="sidebarSyncText">正在连接后台…</span>
+          </div>
+        </div>
+      </aside>
+
+      <div class="main-shell">
+        <header class="topbar">
+          <div>
+            <span class="breadcrumb">业务管理 / 牲畜档案</span>
+            <h1>牲畜档案中心</h1>
+          </div>
+          <div class="top-actions">
+            <div class="connection-pill" id="connectionPill">
+              <i></i><span>检查服务状态</span>
+            </div>
+            <button class="button button-secondary" id="refreshButton" type="button">刷新数据</button>
+            <div class="user-chip"><span>李</span><div><strong>李建国</strong><small>乡镇技术员</small></div></div>
+          </div>
+        </header>
+
+        <main class="main-content">
+          <section class="hero" id="overview">
+            <div>
+              <span class="eyebrow">LIVESTOCK REGISTRY</span>
+              <h2>辖区牲畜建档与来源追踪</h2>
+              <p>小程序新增的购入、生产档案会实时写入本后台，生产牲畜可追溯到母畜。</p>
+            </div>
+            <div class="hero-meta">
+              <span>数据更新时间</span>
+              <strong id="syncTime">--</strong>
+            </div>
+          </section>
+
+          <section class="stats-grid" id="statsGrid" aria-label="牲畜统计"></section>
+
+          <section class="content-grid">
+            <article class="panel registry-panel" id="registry">
+              <div class="panel-heading">
+                <div>
+                  <span class="eyebrow">RECORDS</span>
+                  <h3>牲畜档案</h3>
+                  <p id="recordSummary">加载中…</p>
+                </div>
+                <div class="last-sync">
+                  <span class="status-dot"></span>
+                  <span>后台实时数据</span>
+                </div>
+              </div>
+
+              <div class="toolbar">
+                <label class="search-field">
+                  <span class="search-icon">⌕</span>
+                  <input id="searchInput" type="search" placeholder="搜索耳标号、品种、牧户或草场" autocomplete="off" />
+                </label>
+                <label class="filter-field">
+                  <span>来源</span>
+                  <select id="sourceFilter">
+                    <option value="">全部来源</option>
+                    <option value="purchased">购入</option>
+                    <option value="born">生产</option>
+                  </select>
+                </label>
+                <label class="filter-field">
+                  <span>状态</span>
+                  <select id="statusFilter">
+                    <option value="">全部状态</option>
+                    <option value="normal">正常</option>
+                    <option value="attention">需关注</option>
+                    <option value="abnormal">异常</option>
+                    <option value="offline">离线</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>耳标号</th>
+                      <th>来源</th>
+                      <th>品种 / 性别</th>
+                      <th>母畜 / 供应商</th>
+                      <th>所属草场</th>
+                      <th>健康状态</th>
+                      <th>最后上报</th>
+                    </tr>
+                  </thead>
+                  <tbody id="recordsBody"></tbody>
+                </table>
+                <div class="empty-state" id="emptyState" hidden>
+                  <div class="empty-icon">牧</div>
+                  <strong>暂无匹配的牲畜档案</strong>
+                  <span>调整筛选条件，或从小程序端新增牲畜。</span>
+                </div>
+              </div>
+            </article>
+
+            <aside class="insight-column" id="integration">
+              <article class="panel insight-card">
+                <div class="panel-heading compact">
+                  <div><span class="eyebrow">SOURCE</span><h3>来源构成</h3></div>
+                </div>
+                <div class="source-chart" id="sourceChart"></div>
+              </article>
+
+              <article class="panel insight-card">
+                <div class="panel-heading compact">
+                  <div><span class="eyebrow">HEALTH</span><h3>健康概况</h3></div>
+                </div>
+                <div class="health-list" id="healthList"></div>
+              </article>
+
+              <article class="integration-card">
+                <div class="integration-icon">API</div>
+                <div>
+                  <span class="eyebrow">MINI PROGRAM</span>
+                  <h3>小程序数据接入正常</h3>
+                  <p>新增牲畜通过 <code>POST /api/livestock</code> 写入 SQLite 数据库，生产来源会校验母畜档案。</p>
+                </div>
+              </article>
+            </aside>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div class="modal" id="detailModal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal></div>
+      <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+        <header class="modal-header">
+          <div>
+            <span class="eyebrow">LIVESTOCK PROFILE</span>
+            <h2 id="detailTitle">牲畜档案</h2>
+            <p id="detailSubtitle"></p>
+          </div>
+          <button class="icon-button" type="button" data-close-modal aria-label="关闭">×</button>
+        </header>
+        <div class="modal-body" id="detailBody"></div>
+      </section>
+    </div>
+
+    <div class="toast" id="toast" role="status"></div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
