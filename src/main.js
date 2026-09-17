@@ -5,7 +5,7 @@ import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { TileMap } from 'three-tile';
 import { AREAS, HERDER_SITES, MAP_BOUNDS, MAP_CENTER, STATUS } from './config.js';
-import { createLivestock, getAreaMetrics, pointInPolygon } from './livestock.js';
+import { createLivestockSpriteSystem, getAreaMetrics, pointInPolygon } from './livestock-sprites.js';
 import { createMapSources } from './map-sources.js';
 import './style.css';
 
@@ -24,6 +24,11 @@ const modelPreview = document.querySelector('#model-preview');
 const statusFilter = document.querySelector('#status-filter');
 const ownerFilter = document.querySelector('#owner-filter');
 const visibleCount = document.querySelector('#visible-count');
+const normalCount = document.querySelector('#normal-count');
+const attentionCount = document.querySelector('#attention-count');
+const abnormalCount = document.querySelector('#abnormal-count');
+const offlineCount = document.querySelector('#offline-count');
+const offlineAlert = document.querySelector('#offline-alert');
 const sceneTooltip = document.querySelector('#scene-tooltip');
 const simulationTime = document.querySelector('#simulation-time');
 const simulationTimeLabel = document.querySelector('#simulation-time-label');
@@ -55,18 +60,10 @@ controls.dampingFactor = 0.08;
 controls.screenSpacePanning = false;
 controls.maxPolarAngle = Math.PI * 0.48;
 
-const livestock = createLivestock();
-const ANIMAL_SCALE = 210;
-const ABNORMAL_ANIMAL_SCALE = 300;
-const SELECTED_ANIMAL_SCALE = 285;
-const SELECTED_ABNORMAL_SCALE = 405;
-// Keep the existing sprite visual baseline and add a small 2 m clearance so
-// the marker does not get swallowed by the sampled terrain surface.
-const LIVESTOCK_GROUND_OFFSET = 92;
 const TERRAIN_OVERLAY_OFFSET = 2;
 const TERRAIN_LINE_OFFSET = 4;
 const SETTLEMENT_GROUND_OFFSET = 2;
-const animalSprites = [];
+const LIVESTOCK_MOTION_GROUND_OFFSET = 10;
 const areaMeshes = [];
 const areaLineMaterials = [];
 const siteObjects = [];
@@ -81,7 +78,7 @@ let hoveredFeature = null;
 let map;
 let terrainAvailable = true;
 let demLabel = 'DEM';
-let simulationHour = 6;
+let simulationHour = 10;
 let simulationHoursPerSecond = 1;
 let simulationRunning = true;
 let lastAnimationTime = 0;
@@ -104,25 +101,6 @@ function hideLoading() {
   setServiceState(terrainAvailable ? `天地图影像 · ${demLabel} 在线` : `卫星影像在线 · ${demLabel} 暂无数据`, terrainAvailable ? 'ready' : 'error');
 }
 
-function makeMarkerTexture(color) {
-  const canvas = document.createElement('canvas');
-  canvas.width = 128;
-  canvas.height = 128;
-  const context = canvas.getContext('2d');
-  const cssColor = `#${color.toString(16).padStart(6, '0')}`;
-  const gradient = context.createRadialGradient(64, 64, 5, 64, 64, 56);
-  gradient.addColorStop(0.0, `${cssColor}ff`);
-  gradient.addColorStop(0.5, `${cssColor}ff`);
-  gradient.addColorStop(0.75, `${cssColor}80`);
-  gradient.addColorStop(1.0, `${cssColor}00`);
-  context.fillStyle = gradient;
-  context.fillRect(0, 0, 128, 128);
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
-}
-
 function makeStripedTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = 64;
@@ -143,22 +121,6 @@ function makeStripedTexture() {
   texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(6, 6);
   return texture;
-}
-
-const spriteMaterials = Object.fromEntries(Object.entries(STATUS).map(([key, value]) => [key, new THREE.SpriteMaterial({
-  map: makeMarkerTexture(value.color),
-  color: 0xffffff,
-  transparent: true,
-  opacity: 1,
-  alphaTest: 0.035,
-  depthTest: true,
-  depthWrite: false,
-  sizeAttenuation: true,
-  toneMapped: false
-})]));
-function getAnimalScale(animal, selected = false) {
-  if (animal.status === 'abnormal') return selected ? SELECTED_ABNORMAL_SCALE : ABNORMAL_ANIMAL_SCALE;
-  return selected ? SELECTED_ANIMAL_SCALE : ANIMAL_SCALE;
 }
 
 function positionCamera(tileMap) {
@@ -198,6 +160,13 @@ async function sampleGround(longitude, latitude, level = 12) {
   const detailed = await map.getLocalInfoFromGeoDetailed(new THREE.Vector3(longitude, latitude, 0), level);
   return detailed?.point?.clone() ?? null;
 }
+
+const livestockSpriteSystem = createLivestockSpriteSystem({
+  scene,
+  sampleGround,
+  groundOffset: LIVESTOCK_MOTION_GROUND_OFFSET
+});
+const { livestock, sprites: animalSprites } = livestockSpriteSystem;
 
 function densifyRing(coordinates, subdivisions = 4) {
   return coordinates.flatMap(([longitude, latitude], index) => {
@@ -259,7 +228,7 @@ async function createAreaMesh(area) {
     linewidth: 3,
     transparent: true,
     opacity: 0.94,
-    depthTest: true,
+    depthTest: false,
     depthWrite: false,
     polygonOffset: true,
     polygonOffsetFactor: -1,
@@ -367,7 +336,7 @@ async function createRestZone(site) {
     linewidth: 2.4,
     transparent: true,
     opacity: 0.9,
-    depthTest: true,
+    depthTest: false,
     depthWrite: false,
     polygonOffset: true,
     polygonOffsetFactor: -1,
@@ -410,52 +379,102 @@ function createSeededRandom(seed) {
   };
 }
 
-function areaCenter(area) {
-  const center = area.polygon.reduce((sum, [longitude, latitude]) => [sum[0] + longitude, sum[1] + latitude], [0, 0]);
-  return [center[0] / area.polygon.length, center[1] / area.polygon.length];
+function polygonCenter(polygon) {
+  const total = polygon.reduce(
+    (sum, [longitude, latitude]) => [sum[0] + longitude, sum[1] + latitude],
+    [0, 0]
+  );
+  return [total[0] / polygon.length, total[1] / polygon.length];
 }
 
-function randomGeoPointInArea(area, random) {
-  const longitudes = area.polygon.map(([longitude]) => longitude);
-  const latitudes = area.polygon.map(([, latitude]) => latitude);
-  const minLongitude = Math.min(...longitudes);
-  const maxLongitude = Math.max(...longitudes);
-  const minLatitude = Math.min(...latitudes);
-  const maxLatitude = Math.max(...latitudes);
-  for (let attempt = 0; attempt < 120; attempt += 1) {
+function segmentStaysInPolygon(start, end, polygon, sampleCount = 16) {
+  for (let index = 0; index <= sampleCount; index += 1) {
+    const progress = index / sampleCount;
     const point = [
-      THREE.MathUtils.lerp(minLongitude, maxLongitude, random()),
-      THREE.MathUtils.lerp(minLatitude, maxLatitude, random())
+      THREE.MathUtils.lerp(start[0], end[0], progress),
+      THREE.MathUtils.lerp(start[1], end[1], progress)
     ];
-    if (pointInPolygon(point, area.polygon)) return point;
+    if (!pointInPolygon(point, polygon)) return false;
   }
-  return areaCenter(area);
+  return true;
+}
+
+function randomRoutePoint(origin, minimumDistance, maximumDistance, area, random) {
+  for (let attempt = 0; attempt < 1000; attempt += 1) {
+    const angle = random() * Math.PI * 2;
+    const distance = THREE.MathUtils.lerp(minimumDistance, maximumDistance, random());
+    const candidate = [
+      origin[0] + Math.cos(angle) * distance,
+      origin[1] + Math.sin(angle) * distance
+    ];
+    if (pointInPolygon(candidate, area.polygon)
+      && segmentStaysInPolygon(origin, candidate, area.polygon)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function createGrazingRoute(animal, site, area, random) {
+  const restCenter = polygonCenter(site.restZone.polygon);
+  const firstPoint = randomRoutePoint(restCenter, 0.012, 0.026, area, random)
+    ?? (segmentStaysInPolygon(restCenter, [animal.longitude, animal.latitude], area.polygon)
+      ? [animal.longitude, animal.latitude]
+      : null);
+  if (!firstPoint) throw new Error(`${animal.id} cannot create a route from its rest zone`);
+
+  const route = [firstPoint];
+  let current = firstPoint;
+  for (let waypointIndex = 1; waypointIndex < 8; waypointIndex += 1) {
+    const next = randomRoutePoint(current, 0.0035, 0.009, area, random)
+      ?? randomRoutePoint(current, 0.0015, 0.004, area, random)
+      ?? current;
+    route.push(next);
+    current = next;
+  }
+  return route;
 }
 
 async function prepareMotionTargets() {
-  await mapWithConcurrency(HERDER_SITES, 4, async (site, siteIndex) => {
-    const area = AREAS.find((candidate) => candidate.id === site.grazingAreaId);
-    if (!area || area.id === 'area-d') throw new Error(`${site.ownerName}没有合法的可放牧区域`);
-    const random = createSeededRandom(8721 + siteIndex * 991);
-    const coordinates = [areaCenter(area), ...Array.from({ length: 10 }, () => randomGeoPointInArea(area, random))];
-    const sampled = await mapWithConcurrency(coordinates, 8, ([longitude, latitude]) => sampleGround(longitude, latitude));
-    site.runtime.grazingPoints = sampled.filter(Boolean).map((point) => point.clone().add(new THREE.Vector3(0, LIVESTOCK_GROUND_OFFSET, 0)));
-    if (!site.runtime.grazingPoints.length) throw new Error(`${site.ownerName}放牧区地形采样失败`);
-  });
-
   const ownerIndexes = new Map();
-  livestock.forEach((animal) => {
+  await mapWithConcurrency(livestock, 8, async (animal, animalIndex) => {
+    if (animal.status === 'offline') {
+      delete animal.motion;
+      return;
+    }
     const site = HERDER_SITES.find((candidate) => candidate.ownerId === animal.ownerId);
-    if (!site?.runtime) return;
+    const area = AREAS.find((candidate) => candidate.id === animal.areaId);
+    if (!site?.runtime || !area || area.quality === '禁牧') {
+      throw new Error(`${animal.id} does not have a valid grazing area`);
+    }
+
     const ownerIndex = ownerIndexes.get(animal.ownerId) ?? 0;
     ownerIndexes.set(animal.ownerId, ownerIndex + 1);
     const restPoints = site.runtime.restPoints.length ? site.runtime.restPoints : [site.runtime.restCenter];
     const restBase = restPoints[ownerIndex % restPoints.length];
-    const restPosition = site.runtime.restCenter.clone().lerp(restBase, 0.58).add(new THREE.Vector3(0, LIVESTOCK_GROUND_OFFSET, 0));
-    const pasturePoints = site.runtime.grazingPoints;
-    const path = Array.from({ length: 4 }, (_, index) => pasturePoints[(ownerIndex * 2 + index * 3) % pasturePoints.length].clone());
+    const restGroundPosition = site.runtime.restCenter.clone().lerp(restBase, 0.58);
+    const restPosition = new THREE.Vector3(
+      restGroundPosition.x,
+      restGroundPosition.y + LIVESTOCK_MOTION_GROUND_OFFSET,
+      restGroundPosition.z
+    );
+
+    const random = createSeededRandom(2026091701 + animalIndex * 7919);
+    const coordinates = createGrazingRoute(animal, site, area, random);
+    const sampled = await mapWithConcurrency(
+      coordinates,
+      8,
+      ([longitude, latitude]) => sampleGround(longitude, latitude)
+    );
+    if (sampled.some((point) => !point)) throw new Error(`${animal.id} motion path sampling failed`);
+
+    const path = sampled.map((groundPoint) => new THREE.Vector3(
+      groundPoint.x,
+      groundPoint.y + LIVESTOCK_MOTION_GROUND_OFFSET,
+      groundPoint.z
+    ));
     animal.motion = { site, restPosition, path };
-    if (animal.sprite) animal.sprite.position.copy(restPosition);
+    if (animal.sprite) animal.sprite.position.copy(path[0]);
   });
 }
 
@@ -475,7 +494,7 @@ function pasturePositionAt(path, progress) {
 function updateLivestockMotion(hour) {
   const normalizedHour = ((hour % 24) + 24) % 24;
   livestock.forEach((animal) => {
-    if (!animal.sprite || !animal.motion) return;
+    if (!animal.sprite || !animal.motion || animal.status === 'offline') return;
     const { restPosition, path } = animal.motion;
     let nextPosition;
     if (normalizedHour >= 6 && normalizedHour < 7) {
@@ -515,18 +534,7 @@ function setSimulationHour(value) {
 }
 
 async function addLivestock() {
-  await mapWithConcurrency(livestock, 8, async (animal) => {
-    const point = await sampleGround(animal.longitude, animal.latitude);
-    if (!point) return;
-    const sprite = new THREE.Sprite(spriteMaterials[animal.status]);
-    sprite.position.copy(point).add(new THREE.Vector3(0, LIVESTOCK_GROUND_OFFSET, 0));
-    sprite.scale.setScalar(getAnimalScale(animal));
-    sprite.renderOrder = 5;
-    sprite.userData = { kind: 'animal', animal };
-    animal.sprite = sprite;
-    animalSprites.push(sprite);
-    scene.add(sprite);
-  });
+  await livestockSpriteSystem.createSprites();
   updateFilters();
 }
 
@@ -534,13 +542,20 @@ function updateFilters() {
   const selectedStatus = statusFilter.value;
   const selectedOwner = ownerFilter.value;
   let visible = 0;
+  const statusCounts = { normal: 0, attention: 0, abnormal: 0, offline: 0 };
   livestock.forEach((animal) => {
+    statusCounts[animal.status] = (statusCounts[animal.status] ?? 0) + 1;
     const matches = (selectedStatus === 'all' || animal.status === selectedStatus)
       && (selectedOwner === 'all' || animal.ownerId === selectedOwner);
     if (animal.sprite) animal.sprite.visible = matches;
     if (animal.sprite && matches) visible += 1;
   });
   visibleCount.textContent = `${visible} / ${livestock.length}`;
+  if (normalCount) normalCount.textContent = String(statusCounts.normal ?? 0);
+  if (attentionCount) attentionCount.textContent = String(statusCounts.attention ?? 0);
+  if (abnormalCount) abnormalCount.textContent = String(statusCounts.abnormal ?? 0);
+  if (offlineCount) offlineCount.textContent = String(statusCounts.offline ?? 0);
+  if (offlineAlert) offlineAlert.textContent = `${statusCounts.offline ?? 0} 头牲畜设备掉线`;
   if (selectedObject?.userData.kind === 'animal' && !selectedObject.visible) closeDetails();
 }
 
@@ -575,9 +590,16 @@ function formatDateTime(value) {
   }).format(new Date(value));
 }
 
+function formatOfflineDuration(seconds) {
+  const totalMinutes = Math.max(0, Math.round(seconds / 60));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return hours > 0 ? `${hours} 小时 ${minutes} 分钟` : `${minutes} 分钟`;
+}
+
 function openDetails(object) {
   if (object.userData.kind === 'animal' && hoveredArea) setHoveredArea(null);
-  if (selectedObject?.userData.kind === 'animal') selectedObject.scale.setScalar(getAnimalScale(selectedObject.userData.animal));
+  if (selectedObject?.userData.kind === 'animal') livestockSpriteSystem.setSelected(selectedObject, false);
   selectedObject = object;
   modelPreview.hidden = object.userData.kind !== 'animal';
   detailPanel.dataset.kind = object.userData.kind;
@@ -585,9 +607,28 @@ function openDetails(object) {
     const animal = object.userData.animal;
     const area = AREAS.find((candidate) => candidate.id === animal.areaId);
     const metrics = animal.telemetry.metrics;
-    object.scale.setScalar(getAnimalScale(animal, true));
+    livestockSpriteSystem.setSelected(object, true);
     detailKicker.textContent = '牲畜实时档案';
     detailTitle.textContent = animal.profile.livestockId;
+    const statusSections = animal.status === 'offline'
+      ? [
+        detailSection('设备状态', [
+          ['状态', STATUS.offline.label, 'offline'],
+          ['最后在线时间', formatDateTime(animal.lastOnlineTime)],
+          ['掉线时长', formatOfflineDuration(animal.offlineDuration), 'offline']
+        ]),
+        detailSection('最后一次健康数据', [
+          metricRow('体温', metrics.bodyTemperature, 1),
+          metricRow('心率', metrics.heartRate),
+          metricRow('反刍次数', metrics.rumination)
+        ], { collapsible: true, open: false })
+      ]
+      : [detailSection('健康监测', [
+        ['健康状态', STATUS[animal.telemetry.healthStatus].label, animal.telemetry.healthStatus],
+        metricRow('体温', metrics.bodyTemperature, 1),
+        metricRow('心率', metrics.heartRate),
+        metricRow('反刍次数', metrics.rumination)
+      ], { collapsible: true, open: false })];
     detailContent.innerHTML = [
       detailSection('基础信息', [
         ['编号', animal.profile.livestockId],
@@ -596,12 +637,7 @@ function openDetails(object) {
         ['所属牧户', animal.ownerName],
         ['所在草场区域', area?.name ?? animal.areaId]
       ]),
-      detailSection('健康监测', [
-        ['健康状态', STATUS[animal.telemetry.healthStatus].label, animal.telemetry.healthStatus],
-        metricRow('体温', metrics.bodyTemperature, 1),
-        metricRow('心率', metrics.heartRate),
-        metricRow('反刍次数', metrics.rumination)
-      ], { collapsible: true, open: false }),
+      ...statusSections,
       detailSection('位置信息', [
         ['经纬度坐标', `${animal.telemetry.location.longitude.toFixed(5)}° E<br>${animal.telemetry.location.latitude.toFixed(5)}° N`],
         ['数据更新时间', formatDateTime(animal.telemetry.recordedAt)]
@@ -626,7 +662,7 @@ function openDetails(object) {
 }
 
 function closeDetails() {
-  if (selectedObject?.userData.kind === 'animal') selectedObject.scale.setScalar(getAnimalScale(selectedObject.userData.animal));
+  if (selectedObject?.userData.kind === 'animal') livestockSpriteSystem.setSelected(selectedObject, false);
   selectedObject = null;
   modelPreview.hidden = true;
   delete detailPanel.dataset.kind;
@@ -788,7 +824,7 @@ async function bootstrap() {
     await addLivestock();
     loadingMessage.textContent = '正在初始化早出晚归运动轨迹...';
     await prepareMotionTargets();
-    setSimulationHour(6);
+    setSimulationHour(10);
     if (animalSprites.length !== livestock.length) setServiceState(`${livestock.length - animalSprites.length} 个光点贴地失败`, 'error');
     hideLoading();
   } catch (error) {
@@ -817,8 +853,7 @@ function animate(time) {
   }
   controls.update();
   if (map) map.update(camera);
-  const breathing = (Math.sin((time / 1400) * Math.PI * 2 - Math.PI / 2) + 1) / 2;
-  spriteMaterials.abnormal.opacity = THREE.MathUtils.lerp(0.4, 1, breathing);
+  livestockSpriteSystem.update(time, camera);
   renderer.render(scene, camera);
 }
 
