@@ -67,17 +67,48 @@ export function createLivestock() {
       const status = statuses[index];
       const temperatureBase = status === 'abnormal' ? 40.1 : status === 'attention' ? 39.3 : 38.5;
       const heartRateBase = status === 'abnormal' ? 96 : status === 'attention' ? 84 : 72;
+      const ruminationBase = status === 'abnormal' ? 22 : status === 'attention' ? 28 : 46;
       index += 1;
+      const id = `SC-2026-${String(341 + index).padStart(5, '0')}`;
+      const temperature = Number((temperatureBase + (random() - 0.5) * 0.6).toFixed(1));
+      const heartRate = Math.round(heartRateBase + (random() - 0.5) * 10);
+      const rumination = Math.round(ruminationBase + (random() - 0.5) * 8);
+      const recordedAt = `2026-09-16T${String(9 + Math.floor(index / 50)).padStart(2, '0')}:${String((index * 7) % 60).padStart(2, '0')}:00+08:00`;
       return {
-        id: `AB-${String(index).padStart(3, '0')}`,
+        id,
         ownerId: owner.id,
         ownerName: owner.name,
         areaId: owner.areaId,
         longitude,
         latitude,
         status,
-        temperature: Number((temperatureBase + (random() - 0.5) * 0.6).toFixed(1)),
-        heartRate: Math.round(heartRateBase + (random() - 0.5) * 10)
+        temperature,
+        heartRate,
+        profile: {
+          livestockId: id,
+          type: '牛',
+          breed: ['九龙牦牛', '麦洼牦牛', '阿坝牦牛'][index % 3]
+        },
+        device: {
+          deviceId: `COLLAR-AB-${String(index).padStart(4, '0')}`,
+          deviceType: 'GNSS 智能项圈',
+          protocol: 'MQTT',
+          lastSeenAt: recordedAt
+        },
+        telemetry: {
+          recordedAt,
+          healthStatus: status,
+          metrics: {
+            bodyTemperature: { value: temperature, unit: '°C', normalRange: [37.5, 39.5] },
+            heartRate: { value: heartRate, unit: '次/分', normalRange: [40, 80] },
+            rumination: { value: rumination, unit: '次/天', normalRange: [30, 60] }
+          },
+          location: {
+            longitude,
+            latitude,
+            coordinateSystem: 'WGS84'
+          }
+        }
       };
     });
   });
