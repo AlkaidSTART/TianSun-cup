@@ -309,7 +309,7 @@ onMounted(() => {
           </p>
         </div>
         <div class="page-head-actions">
-          <button class="btn btn-secondary" type="button" @click="exportList">导出列表</button>
+          <button class="btn btn-secondary export-list-button" type="button" @click="exportList">导出列表</button>
           <button class="btn btn-primary add-animal-button" type="button" @click="openAdd">
             <Plus :size="15" />添加牲畜
           </button>
@@ -509,6 +509,14 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   flex: none;
+}
+.export-list-button {
+  border: 1px solid #e2e5e3;
+  color: #55635c;
+  background: #eef0ef;
+}
+.export-list-button:hover {
+  background: #e5e8e6;
 }
 .add-animal-button {
   display: inline-flex;
