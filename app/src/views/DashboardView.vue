@@ -56,7 +56,7 @@ const todaySuggestionMeta = computed(() => {
   const count = todayRotationSchedules.value.length
   return `${schedule.time} · ${schedule.status}${count > 1 ? ` · 共${count}项` : ''}`
 })
-const todaySuggestionDetail = computed(() => todaySuggestion.value?.detail || '今日暂无轮换安排，草场压力平稳')
+const todaySuggestionDetail = computed(() => todaySuggestion.value?.detail || '今日暂无安排')
 const todaySuggestionTone = computed(() => todaySuggestion.value?.tone || 'ok')
 const emit = defineEmits<{ (event: 'navigate', view: string): void }>()
 

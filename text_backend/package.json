@@ -1,0 +1,15 @@
+{
+  "name": "tiansun-livestock-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "智慧牧场牲畜档案后端与管理后台",
+  "scripts": {
+    "dev": "node --experimental-sqlite --disable-warning=ExperimentalWarning --watch server.js",
+    "start": "node --experimental-sqlite --disable-warning=ExperimentalWarning server.js",
+    "test": "node --experimental-sqlite --disable-warning=ExperimentalWarning --test"
+  },
+  "engines": {
+    "node": ">=22.5"
+  }
+}
