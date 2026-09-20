@@ -1,27 +1,14 @@
 import { ref } from 'vue'
+import {
+  todoApi,
+  type TodoDraft,
+  type TodoItem,
+  type TodoListFilters,
+  type TodoType,
+  type TodoTypeMeta,
+} from '../services/todoApi'
 
-export type TodoType = 'rotation' | 'inspection' | 'vaccination' | 'maintenance' | 'device' | 'custom'
-
-export interface TodoDraft {
-  type: TodoType
-  date: string
-  time: string
-  title: string
-  detail: string
-}
-
-export interface TodoItem extends TodoDraft {
-  id: string
-  status: string
-  tone: 'ok' | 'warn'
-}
-
-export interface TodoTypeMeta {
-  label: string
-  hint: string
-  status: string
-  tone: 'ok' | 'warn'
-}
+export type { TodoDraft, TodoItem, TodoListFilters, TodoTone, TodoType, TodoTypeMeta } from '../services/todoApi'
 
 export const todoTypeMeta: Record<TodoType, TodoTypeMeta> = {
   rotation: { label: '轮换日程', hint: '草场轮换与牲畜转移', status: '待确认', tone: 'warn' },
@@ -44,6 +31,19 @@ export function dateAfter(days: number) {
 }
 
 export const todoCurrentDate = ref(localDateValue())
+export const todoItems = ref<TodoItem[]>([])
+export const todoLoading = ref(false)
+export const todoError = ref('')
+
+let latestRequest = 0
+
+function sortTodos(items: TodoItem[]) {
+  return [...items].sort((left, right) => `${left.date} ${left.time}`.localeCompare(`${right.date} ${right.time}`))
+}
+
+function errorText(error: unknown) {
+  return error instanceof Error ? error.message : '待办事项操作失败'
+}
 
 function relativeDateLabel(value: string) {
   const today = new Date(`${todoCurrentDate.value}T00:00:00`)
@@ -60,98 +60,30 @@ export function todoDisplayTitle(item: TodoItem) {
   return `${relativeDateLabel(item.date)} ${item.time} · ${item.title}`
 }
 
-export const todoItems = ref<TodoItem[]>([
-  {
-    id: '01',
-    type: 'rotation',
-    date: dateAfter(1),
-    time: '06:00',
-    title: '北坡 → 河谷',
-    detail: '释放北坡压力，预计转移 20 头',
-    status: '待确认',
-    tone: 'warn',
-  },
-  {
-    id: '02',
-    type: 'device',
-    date: dateAfter(1),
-    time: '15:00',
-    title: 'SC-2026-00220 检修',
-    detail: '更换电池并复核上报链路',
-    status: '待处理',
-    tone: 'warn',
-  },
-  {
-    id: '03',
-    type: 'inspection',
-    date: dateAfter(2),
-    time: '07:00',
-    title: '东沟草场巡检',
-    detail: '复核土壤湿度与围栏状态',
-    status: '待执行',
-    tone: 'ok',
-  },
-  {
-    id: '04',
-    type: 'vaccination',
-    date: dateAfter(2),
-    time: '09:30',
-    title: '河谷牛群疫苗接种',
-    detail: '口蹄疫疫苗第一针 · 预计 55 头',
-    status: '待执行',
-    tone: 'ok',
-  },
-])
+export async function loadTodos(filters: TodoListFilters = {}) {
+  const requestId = ++latestRequest
+  todoLoading.value = true
+  todoError.value = ''
 
-let nextTodoId = 5
-
-function sortTodos() {
-  todoItems.value.sort((left, right) => `${left.date} ${left.time}`.localeCompare(`${right.date} ${right.time}`))
-}
-
-export function cleanupExpiredTodos(referenceDate = localDateValue()) {
-  todoCurrentDate.value = referenceDate
-  const previousCount = todoItems.value.length
-  todoItems.value = todoItems.value.filter((item) => item.date >= referenceDate)
-  return previousCount - todoItems.value.length
-}
-
-export function startTodoCleanup() {
-  let timer: ReturnType<typeof setTimeout> | undefined
-  let stopped = false
-
-  const runCleanup = () => {
-    if (stopped) return
-    cleanupExpiredTodos()
-    const now = new Date()
-    const nextMidnight = new Date(now)
-    nextMidnight.setHours(24, 0, 1, 0)
-    timer = setTimeout(runCleanup, Math.max(1_000, nextMidnight.getTime() - now.getTime()))
-  }
-
-  runCleanup()
-  return () => {
-    stopped = true
-    if (timer) clearTimeout(timer)
+  try {
+    const records = await todoApi.list(filters)
+    if (requestId === latestRequest) todoItems.value = sortTodos(records)
+    return records
+  } catch (error) {
+    const message = errorText(error)
+    if (requestId === latestRequest) todoError.value = message
+    throw new Error(message)
+  } finally {
+    if (requestId === latestRequest) todoLoading.value = false
   }
 }
 
-export function addTodo(draft: TodoDraft) {
-  cleanupExpiredTodos()
-  if (draft.date < todoCurrentDate.value) return null
-
-  const meta = todoTypeMeta[draft.type]
-  const item: TodoItem = {
-    id: String(nextTodoId++).padStart(2, '0'),
-    type: draft.type,
-    date: draft.date,
-    time: draft.time,
-    title: draft.title,
-    detail: draft.detail,
-    status: meta.status,
-    tone: meta.tone,
-  }
-  todoItems.value.push(item)
-  sortTodos()
+export async function addTodo(draft: TodoDraft) {
+  const item = await todoApi.create(draft)
+  todoItems.value = sortTodos([
+    ...todoItems.value.filter((existing) => existing.id !== item.id),
+    item,
+  ])
+  todoError.value = ''
   return item
 }

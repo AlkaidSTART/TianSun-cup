@@ -56,6 +56,22 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_livestock_mother_id ON livestock(mother_id);
   CREATE INDEX IF NOT EXISTS idx_livestock_pasture_id ON livestock(pasture_id);
   CREATE INDEX IF NOT EXISTS idx_livestock_updated_at ON livestock(updated_at DESC);
+
+  CREATE TABLE IF NOT EXISTS todos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL CHECK (type IN ('rotation', 'inspection', 'vaccination', 'maintenance', 'device', 'custom')),
+    todo_date TEXT NOT NULL,
+    todo_time TEXT NOT NULL,
+    title TEXT NOT NULL,
+    detail TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL,
+    tone TEXT NOT NULL CHECK (tone IN ('ok', 'warn')),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_todos_date_time ON todos(todo_date, todo_time);
+  CREATE INDEX IF NOT EXISTS idx_todos_type ON todos(type);
 `)
 
 const insertStatement = db.prepare(`

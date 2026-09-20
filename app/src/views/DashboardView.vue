@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import {
   Bell,
   CircleAlert,
@@ -15,7 +15,7 @@ import {
   WifiOff,
   X,
 } from 'lucide-vue-next'
-import { rotationCurrentDate, rotationSchedules } from '../data/rotationSchedule'
+import { loadTodos, todoCurrentDate, todoError, todoItems, todoLoading } from '../data/todoList'
 
 type DotStatus = 'normal' | 'attn' | 'alert' | 'offline'
 
@@ -45,19 +45,18 @@ const activeDot = ref<MapDot | null>(null)
 const toastText = ref('')
 let toastTimer: ReturnType<typeof setTimeout> | undefined
 const isDrawerOpen = computed(() => activeDot.value !== null)
-const todayRotationSchedules = computed(() => rotationSchedules.value
-  .filter((schedule) => schedule.date === rotationCurrentDate.value)
+const todayTodos = computed(() => todoItems.value
+  .filter((todo) => todo.date === todoCurrentDate.value)
   .sort((left, right) => left.time.localeCompare(right.time)))
-const todaySuggestion = computed(() => todayRotationSchedules.value[0])
-const todaySuggestionTitle = computed(() => todaySuggestion.value?.title || '无安排')
-const todaySuggestionMeta = computed(() => {
-  const schedule = todaySuggestion.value
-  if (!schedule) return '暂无事件'
-  const count = todayRotationSchedules.value.length
-  return `${schedule.time} · ${schedule.status}${count > 1 ? ` · 共${count}项` : ''}`
+const todayTodoMeta = computed(() => {
+  if (todoLoading.value) return '加载中'
+  if (todoError.value) return '数据库未连接'
+  const first = todayTodos.value[0]
+  if (!first) return '今日暂无代办'
+  const count = todayTodos.value.length
+  return `${first.time} · ${first.status}${count > 1 ? ` · 共${count}项` : ''}`
 })
-const todaySuggestionDetail = computed(() => todaySuggestion.value?.detail || '今日暂无安排')
-const todaySuggestionTone = computed(() => todaySuggestion.value?.tone || 'ok')
+const todayTodoTone = computed(() => todayTodos.value[0]?.tone || 'ok')
 const emit = defineEmits<{ (event: 'navigate', view: string): void }>()
 
 function showMessage(message: string) {
@@ -65,6 +64,14 @@ function showMessage(message: string) {
   if (toastTimer) clearTimeout(toastTimer)
   toastTimer = setTimeout(() => { toastText.value = '' }, 1600)
 }
+
+onMounted(async () => {
+  try {
+    await loadTodos({ date: todoCurrentDate.value })
+  } catch (error) {
+    showMessage(error instanceof Error ? error.message : '待办事项加载失败')
+  }
+})
 
 function openDot(dot: MapDot) { activeDot.value = dot }
 function closeDrawer() { activeDot.value = null }
@@ -95,7 +102,7 @@ function focusDot() {
 
       <div class="workspace">
         <section class="panel"><div class="panel-head"><div><div class="panel-title">3D 牧场总览</div><div class="panel-meta">程序化地形 · LOD 128×128 · 实时点位</div></div><button class="link-btn" @click="showMessage('视角已重置')">重置视角 ↗</button></div><div class="map-wrap"><div class="map"><div class="mountain m1"></div><div class="mountain m2"></div><div class="mountain m3"></div><div class="river"></div><div class="boundary zone-a"></div><div class="boundary zone-b"></div><div class="boundary zone-c"></div><span class="zone-label za">P-A-01 · 东沟</span><span class="zone-label zb">P-A-02 · 北坡</span><span class="zone-label zc">P-A-03 · 河谷</span><button v-for="dot in dots" :key="dot.id" class="dot" :class="[dot.status, dot.position]" :aria-label="`${dot.id} ${dot.label}`" @click="openDot(dot)"></button><div class="map-legend"><div class="legend-item"><i class="legend-dot ld-g"></i>正常</div><div class="legend-item"><i class="legend-dot ld-y"></i>需关注</div><div class="legend-item"><i class="legend-dot ld-r"></i>异常</div><div class="legend-item"><i class="legend-dot ld-x"></i>离线</div></div><div class="map-tools"><button class="map-tool" aria-label="放大地图" @click="showMessage('已放大地图')"><Plus :size="17" /></button><button class="map-tool" aria-label="缩小地图" @click="showMessage('已缩小地图')"><Minus :size="17" /></button><button class="map-tool" aria-label="定位示范区" @click="showMessage('已回到示范区中心')"><LocateFixed :size="17" /></button></div><div class="map-status">数据流 <b>● 正常</b>　128 个点位 · 约 12 秒前</div></div></div></section>
-        <aside class="side"><div class="side-stack"><section class="panel"><div class="panel-head"><div class="panel-title">需要立即关注</div><button class="link-btn" @click="showMessage('当前共 3 条待处理告警')">查看全部</button></div><button class="alert-item" @click="openAlert('SC-2026-00286')"><div class="alert-icon red"><TriangleAlert :size="13" /></div><div class="alert-copy"><strong>SC-2026-00286 体温偏高</strong><span>40.7℃ · P-A-03 河谷</span></div><div class="alert-time">2分钟前</div></button><button class="alert-item" @click="openAlert('P-A-01')"><div class="alert-icon yellow"><CircleAlert :size="13" /></div><div class="alert-copy"><strong>东沟草场压力偏高</strong><span>指数 0.75 · 建议轮换</span></div><div class="alert-time">18分钟前</div></button><button class="alert-item" @click="openAlert('SC-2026-00220')"><div class="alert-icon gray"><WifiOff :size="13" /></div><div class="alert-copy"><strong>SC-2026-00220 设备离线</strong><span>最后上报 32 分钟前</span></div><div class="alert-time">32分钟前</div></button></section><section class="panel"><div class="panel-head"><div class="panel-title">今日建议</div><span class="status" :class="todaySuggestionTone">{{ todaySuggestionMeta }}</span></div><div class="suggestion"><div class="suggestion-title">{{ todaySuggestionTitle }}</div><p class="suggestion-detail">{{ todaySuggestionDetail }}</p></div></section></div><section class="panel"><div class="panel-head"><div class="panel-title">今日健康分布</div><span class="panel-meta">128 头</span></div><div class="health"><div class="health-row"><span>正常</span><strong>121 <small>94.5%</small></strong></div><div class="bar"><i style="width:94.5%"></i></div><div class="health-row"><span>需关注</span><strong>5 <small>3.9%</small></strong></div><div class="bar"><i class="yellow" style="width:3.9%"></i></div><div class="health-row"><span>异常</span><strong>2 <small>1.6%</small></strong></div><div class="bar"><i style="width:1.6%;background:var(--danger)"></i></div></div></section></aside>
+        <aside class="side"><div class="side-stack"><section class="panel"><div class="panel-head"><div class="panel-title">需要立即关注</div><button class="link-btn" @click="showMessage('当前共 3 条待处理告警')">查看全部</button></div><button class="alert-item" @click="openAlert('SC-2026-00286')"><div class="alert-icon red"><TriangleAlert :size="13" /></div><div class="alert-copy"><strong>SC-2026-00286 体温偏高</strong><span>40.7℃ · P-A-03 河谷</span></div><div class="alert-time">2分钟前</div></button><button class="alert-item" @click="openAlert('P-A-01')"><div class="alert-icon yellow"><CircleAlert :size="13" /></div><div class="alert-copy"><strong>东沟草场压力偏高</strong><span>指数 0.75 · 建议轮换</span></div><div class="alert-time">18分钟前</div></button><button class="alert-item" @click="openAlert('SC-2026-00220')"><div class="alert-icon gray"><WifiOff :size="13" /></div><div class="alert-copy"><strong>SC-2026-00220 设备离线</strong><span>最后上报 32 分钟前</span></div><div class="alert-time">32分钟前</div></button></section><section class="panel"><div class="panel-head"><div class="panel-title">今日待办</div><span class="status" :class="todayTodoTone">{{ todayTodoMeta }}</span></div><div v-if="todoLoading" class="suggestion"><div class="suggestion-title">加载中...</div><p class="suggestion-detail">正在从数据库读取今日事项</p></div><div v-else-if="todoError" class="suggestion"><div class="suggestion-title">数据库未连接</div><p class="suggestion-detail">{{ todoError }}</p></div><div v-else-if="todayTodos.length === 0" class="suggestion"><div class="suggestion-title">今日暂无代办</div><p class="suggestion-detail">可在“我的”页面添加今日事项</p></div><div v-else class="today-todo-list"><div v-for="(item, index) in todayTodos" :key="item.id" class="suggestion" :style="index > 0 ? 'border-top:1px solid var(--line)' : ''"><div class="suggestion-title">{{ item.time }} · {{ item.title }}</div><p class="suggestion-detail">{{ item.status }} · {{ item.detail }}</p></div></div></section></div><section class="panel"><div class="panel-head"><div class="panel-title">今日健康分布</div><span class="panel-meta">128 头</span></div><div class="health"><div class="health-row"><span>正常</span><strong>121 <small>94.5%</small></strong></div><div class="bar"><i style="width:94.5%"></i></div><div class="health-row"><span>需关注</span><strong>5 <small>3.9%</small></strong></div><div class="bar"><i class="yellow" style="width:3.9%"></i></div><div class="health-row"><span>异常</span><strong>2 <small>1.6%</small></strong></div><div class="bar"><i style="width:1.6%;background:var(--danger)"></i></div></div></section></aside>
       </div>
 
       <div class="section-grid section"><section class="panel"><div class="panel-head"><div><div class="panel-title">草场分区</div><div class="panel-meta">3 个管理单元 · 实时承载</div></div><button class="link-btn" @click="emit('navigate', 'pasture')">分区详情</button></div><table class="zone-table"><thead><tr><th>区域</th><th>质量</th><th>载畜 / 上限</th><th>压力</th></tr></thead><tbody><tr><td><div class="zone-name"><i class="zone-swatch"></i>东沟草场 <small>P-A-01</small></div></td><td><span class="quality">优良</span></td><td>45 / 60 头</td><td>0.75</td></tr><tr><td><div class="zone-name"><i class="zone-swatch"></i>河谷草场 <small>P-A-03</small></div></td><td><span class="quality">优良</span></td><td>38 / 55 头</td><td>0.69</td></tr><tr><td><div class="zone-name"><i class="zone-swatch warn"></i>北坡草场 <small>P-A-02</small></div></td><td><span class="quality warn">一般</span></td><td>45 / 48 头</td><td>0.94</td></tr></tbody></table></section><section class="panel"><div class="panel-head"><div><div class="panel-title">近 7 日草场压力</div><div class="panel-meta">指数越低越健康</div></div><span class="panel-meta">均值 0.68</span></div><div class="mini-chart"><div class="bar-col" style="height:56%"><b>01</b></div><div class="bar-col" style="height:62%"><b>02</b></div><div class="bar-col" style="height:50%"><b>03</b></div><div class="bar-col" style="height:68%"><b>04</b></div><div class="bar-col" style="height:74%"><b>05</b></div><div class="bar-col" style="height:78%"><b>06</b></div><div class="bar-col" style="height:75%;background:linear-gradient(to top,#f6c76e,#fef3c7)"><b>今</b></div></div></section></div>

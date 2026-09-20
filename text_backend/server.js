@@ -6,11 +6,13 @@ import {
   ApiError,
   breedOptions,
   createLivestock,
+  createTodo,
   databaseFile,
   getLivestock,
   getStats,
   listLivestock,
   listMothers,
+  listTodos,
   pastureOptions,
   sourceTypeOptions,
   statusOptions,
@@ -115,6 +117,19 @@ async function handleApi(request, response, url) {
         { value: 'male', label: '公' },
       ],
     })
+    return
+  }
+
+  if (request.method === 'GET' && pathname === '/api/todos') {
+    const records = await listTodos({ date: url.searchParams.get('date') || '' })
+    sendSuccess(response, records)
+    return
+  }
+
+  if (request.method === 'POST' && pathname === '/api/todos') {
+    const payload = await readJsonBody(request)
+    const record = await createTodo(payload)
+    sendSuccess(response, record, '待办事项已创建', 201)
     return
   }
 
