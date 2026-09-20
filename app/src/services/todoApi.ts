@@ -79,4 +79,23 @@ export const todoApi = {
       body: JSON.stringify(draft),
     })
   },
+
+  complete(id: string) {
+    return request<TodoItem>(`/todos/${encodeURIComponent(id)}/complete`, {
+      method: 'PATCH',
+    })
+  },
+
+  update(id: string, draft: TodoDraft) {
+    return request<TodoItem>(`/todos/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(draft),
+    })
+  },
+
+  remove(id: string) {
+    return request<{ id: string }>(`/todos/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    })
+  },
 }

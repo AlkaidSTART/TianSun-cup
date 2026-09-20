@@ -339,12 +339,12 @@ export async function getStats() {
 }
 
 const todoTypeMeta = {
-  rotation: { status: '待确认', tone: 'warn' },
-  inspection: { status: '待执行', tone: 'ok' },
-  vaccination: { status: '待执行', tone: 'ok' },
-  maintenance: { status: '待执行', tone: 'ok' },
-  device: { status: '待处理', tone: 'warn' },
-  custom: { status: '待执行', tone: 'ok' },
+  rotation: { status: '待办', tone: 'warn' },
+  inspection: { status: '待办', tone: 'warn' },
+  vaccination: { status: '待办', tone: 'warn' },
+  maintenance: { status: '待办', tone: 'warn' },
+  device: { status: '待办', tone: 'warn' },
+  custom: { status: '待办', tone: 'warn' },
 }
 
 const allowedTodoTypes = new Set(Object.keys(todoTypeMeta))
@@ -416,4 +416,40 @@ export async function createTodo(payload) {
   `).run(todo.type, todo.date, todo.time, todo.title, todo.detail, todo.status, todo.tone, now, now)
 
   return normalizeTodo(db.prepare(`${todoSelect} WHERE id = ?`).get(result.lastInsertRowid))
+}
+
+function findTodo(id) {
+  const numericId = Number(id)
+  if (!Number.isInteger(numericId) || numericId <= 0) return undefined
+  return normalizeTodo(db.prepare(`${todoSelect} WHERE id = ?`).get(numericId))
+}
+
+export async function completeTodo(id) {
+  const todo = findTodo(id)
+  if (!todo) throw new ApiError(404, '未找到该待办事项')
+
+  db.prepare("UPDATE todos SET status = '已完成', tone = 'ok', updated_at = ? WHERE id = ?")
+    .run(new Date().toISOString(), Number(id))
+  return findTodo(id)
+}
+
+export async function updateTodo(id, payload) {
+  const previous = findTodo(id)
+  if (!previous) throw new ApiError(404, '未找到该待办事项')
+
+  const todo = validateTodoPayload({ ...previous, ...payload, type: previous.type })
+  db.prepare(`
+    UPDATE todos
+    SET type = ?, todo_date = ?, todo_time = ?, title = ?, detail = ?, updated_at = ?
+    WHERE id = ?
+  `).run(todo.type, todo.date, todo.time, todo.title, todo.detail, new Date().toISOString(), Number(id))
+  return findTodo(id)
+}
+
+export async function deleteTodo(id) {
+  const todo = findTodo(id)
+  if (!todo) throw new ApiError(404, '未找到该待办事项')
+
+  db.prepare('DELETE FROM todos WHERE id = ?').run(Number(id))
+  return { id: todo.id }
 }

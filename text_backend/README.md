@@ -44,7 +44,7 @@ npm run dev
 
 数据库表 `livestock` 包含耳标号、品种、性别、来源类型、母畜关系、购入信息、草场、健康状态和创建/更新时间等字段，并为状态、来源、母畜、草场和更新时间建立了索引。
 
-数据库表 `todos` 保存 App 端新增的待办事项，包含类型、日期、时间、标题、详情、状态和创建/更新时间；按 `todo_date` 与 `todo_time` 建立组合索引，支持快速筛选当天事项。
+数据库表 `todos` 保存 App 端新增的待办事项，包含类型、日期、时间、标题、详情、状态和创建/更新时间；状态仅使用“待办”和“已完成”两种，按 `todo_date` 与 `todo_time` 建立组合索引，支持快速筛选当天事项。
 
 ## 接口
 
@@ -53,6 +53,9 @@ npm run dev
 | GET | `/api/health` | 服务与数据库健康检查 |
 | GET | `/api/todos` | 查询待办事项，支持 `date=YYYY-MM-DD` 筛选当天数据 |
 | POST | `/api/todos` | 新增待办事项并写入 SQLite |
+| PATCH | `/api/todos/:id` | 修改指定待办的日期、时间、标题和详情 |
+| PATCH | `/api/todos/:id/complete` | 将指定待办事项状态更新为“已完成” |
+| DELETE | `/api/todos/:id` | 删除指定待办事项 |
 | GET | `/api/meta/options` | 来源、状态、草场、品种等选项 |
 | GET | `/api/livestock` | 查询牲畜列表，支持 `q`、`status`、`sourceType` |
 | GET | `/api/livestock/:id` | 查询单个牲畜档案 |
