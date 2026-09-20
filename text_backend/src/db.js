@@ -72,6 +72,8 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_todos_date_time ON todos(todo_date, todo_time);
   CREATE INDEX IF NOT EXISTS idx_todos_type ON todos(type);
+
+  UPDATE todos SET status = '待办', tone = 'warn' WHERE status <> '已完成';
 `)
 
 const insertStatement = db.prepare(`

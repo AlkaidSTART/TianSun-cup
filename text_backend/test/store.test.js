@@ -82,27 +82,49 @@ test('creates purchased and born livestock records with mother validation', asyn
     assert.equal(stats.born, 7)
 
     const todayTodo = await store.createTodo({
-      type: 'inspection',
+      type: 'rotation',
       date: '2026-09-20',
       time: '07:30',
       title: '东沟草场巡检',
       detail: '检查围栏和水源',
     })
-    assert.equal(todayTodo.type, 'inspection')
-    assert.equal(todayTodo.status, '待执行')
+    assert.equal(todayTodo.type, 'rotation')
+    assert.equal(todayTodo.status, '待办')
     assert.equal(typeof todayTodo.id, 'string')
 
-    await store.createTodo({
+    const customTodo = await store.createTodo({
       type: 'custom',
       date: '2026-09-21',
       time: '09:00',
       title: '领取防疫物资',
       detail: '',
     })
+    assert.equal(customTodo.status, '待办')
+    assert.equal(customTodo.tone, 'warn')
+
+    const updatedTodo = await store.updateTodo(todayTodo.id, {
+      date: '2026-09-20',
+      time: '08:15',
+      title: '北坡草场轮换',
+      detail: '更新后的待办备注',
+    })
+    assert.equal(updatedTodo.title, '北坡草场轮换')
+    assert.equal(updatedTodo.time, '08:15')
+    assert.equal(updatedTodo.status, '待办')
+
+    const completedTodo = await store.completeTodo(updatedTodo.id)
+    assert.equal(completedTodo.status, '已完成')
+    assert.equal(completedTodo.tone, 'ok')
+
     const todayTodos = await store.listTodos({ date: '2026-09-20' })
     assert.equal(todayTodos.length, 1)
-    assert.equal(todayTodos[0].title, '东沟草场巡检')
-    assert.equal((await store.listTodos()).length, 2)
+    assert.equal(todayTodos[0].title, '北坡草场轮换')
+    assert.equal(todayTodos[0].detail, '更新后的待办备注')
+    assert.equal(todayTodos[0].status, '已完成')
+
+    const deletedTodo = await store.deleteTodo(customTodo.id)
+    assert.equal(deletedTodo.id, customTodo.id)
+    assert.equal((await store.listTodos()).length, 1)
 
     await assert.rejects(
       () => store.createTodo({ type: 'custom', date: '2026-02-30', time: '09:00', title: '无效日期' }),

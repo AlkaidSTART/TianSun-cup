@@ -11,12 +11,12 @@ import {
 export type { TodoDraft, TodoItem, TodoListFilters, TodoTone, TodoType, TodoTypeMeta } from '../services/todoApi'
 
 export const todoTypeMeta: Record<TodoType, TodoTypeMeta> = {
-  rotation: { label: '轮换日程', hint: '草场轮换与牲畜转移', status: '待确认', tone: 'warn' },
-  inspection: { label: '巡检任务', hint: '草层、水源等巡查', status: '待执行', tone: 'ok' },
-  vaccination: { label: '疫苗接种', hint: '畜群免疫与防疫安排', status: '待执行', tone: 'ok' },
-  maintenance: { label: '草场维护', hint: '补播施肥与围栏修复', status: '待执行', tone: 'ok' },
-  device: { label: '设备维护', hint: '终端检修与故障处理', status: '待处理', tone: 'warn' },
-  custom: { label: '自定义待办', hint: '其他需要跟进的事项', status: '待执行', tone: 'ok' },
+  rotation: { label: '轮换日程', hint: '草场轮换与牲畜转移', status: '待办', tone: 'warn' },
+  inspection: { label: '巡检任务', hint: '草层、水源等巡查', status: '待办', tone: 'warn' },
+  vaccination: { label: '疫苗接种', hint: '畜群免疫与防疫安排', status: '待办', tone: 'warn' },
+  maintenance: { label: '草场维护', hint: '补播施肥与围栏修复', status: '待办', tone: 'warn' },
+  device: { label: '设备维护', hint: '终端检修与故障处理', status: '待办', tone: 'warn' },
+  custom: { label: '自定义待办', hint: '其他需要跟进的事项', status: '待办', tone: 'warn' },
 }
 
 export function localDateValue(date = new Date()) {
@@ -86,4 +86,24 @@ export async function addTodo(draft: TodoDraft) {
   ])
   todoError.value = ''
   return item
+}
+
+export async function completeTodo(id: string) {
+  const item = await todoApi.complete(id)
+  todoItems.value = todoItems.value.map((existing) => existing.id === item.id ? item : existing)
+  todoError.value = ''
+  return item
+}
+
+export async function updateTodo(id: string, draft: TodoDraft) {
+  const item = await todoApi.update(id, draft)
+  todoItems.value = sortTodos(todoItems.value.map((existing) => existing.id === item.id ? item : existing))
+  todoError.value = ''
+  return item
+}
+
+export async function removeTodo(id: string) {
+  await todoApi.remove(id)
+  todoItems.value = todoItems.value.filter((existing) => existing.id !== id)
+  todoError.value = ''
 }

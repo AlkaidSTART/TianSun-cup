@@ -5,9 +5,11 @@ import { fileURLToPath } from 'node:url'
 import {
   ApiError,
   breedOptions,
+  completeTodo,
   createLivestock,
   createTodo,
   databaseFile,
+  deleteTodo,
   getLivestock,
   getStats,
   listLivestock,
@@ -17,6 +19,7 @@ import {
   sourceTypeOptions,
   statusOptions,
   updateLivestock,
+  updateTodo,
 } from './src/store.js'
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url))
@@ -39,7 +42,7 @@ const mimeTypes = {
 
 function setCorsHeaders(response) {
   response.setHeader('Access-Control-Allow-Origin', '*')
-  response.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,OPTIONS')
+  response.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE,OPTIONS')
   response.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization')
   response.setHeader('Access-Control-Max-Age', '86400')
 }
@@ -130,6 +133,29 @@ async function handleApi(request, response, url) {
     const payload = await readJsonBody(request)
     const record = await createTodo(payload)
     sendSuccess(response, record, '待办事项已创建', 201)
+    return
+  }
+
+  const todoCompleteMatch = pathname.match(/^\/api\/todos\/([^/]+)\/complete$/)
+  if (todoCompleteMatch && request.method === 'PATCH') {
+    const id = decodeURIComponent(todoCompleteMatch[1])
+    const record = await completeTodo(id)
+    sendSuccess(response, record, '待办事项已完成')
+    return
+  }
+
+  const todoMatch = pathname.match(/^\/api\/todos\/([^/]+)$/)
+  if (todoMatch && request.method === 'PATCH') {
+    const id = decodeURIComponent(todoMatch[1])
+    const payload = await readJsonBody(request)
+    const record = await updateTodo(id, payload)
+    sendSuccess(response, record, '待办事项已更新')
+    return
+  }
+
+  if (todoMatch && request.method === 'DELETE') {
+    const id = decodeURIComponent(todoMatch[1])
+    sendSuccess(response, await deleteTodo(id), '待办事项已删除')
     return
   }
 
