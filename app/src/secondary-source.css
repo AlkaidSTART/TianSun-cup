@@ -284,6 +284,8 @@ a.list-row:hover {
 }
 .zone {
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 .zone:hover {
   background: var(--surface-warm);

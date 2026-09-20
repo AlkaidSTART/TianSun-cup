@@ -80,6 +80,34 @@ test('creates purchased and born livestock records with mother validation', asyn
     assert.equal(stats.total, 9)
     assert.equal(stats.purchased, 2)
     assert.equal(stats.born, 7)
+
+    const todayTodo = await store.createTodo({
+      type: 'inspection',
+      date: '2026-09-20',
+      time: '07:30',
+      title: '东沟草场巡检',
+      detail: '检查围栏和水源',
+    })
+    assert.equal(todayTodo.type, 'inspection')
+    assert.equal(todayTodo.status, '待执行')
+    assert.equal(typeof todayTodo.id, 'string')
+
+    await store.createTodo({
+      type: 'custom',
+      date: '2026-09-21',
+      time: '09:00',
+      title: '领取防疫物资',
+      detail: '',
+    })
+    const todayTodos = await store.listTodos({ date: '2026-09-20' })
+    assert.equal(todayTodos.length, 1)
+    assert.equal(todayTodos[0].title, '东沟草场巡检')
+    assert.equal((await store.listTodos()).length, 2)
+
+    await assert.rejects(
+      () => store.createTodo({ type: 'custom', date: '2026-02-30', time: '09:00', title: '无效日期' }),
+      (error) => error.statusCode === 400 && error.details.date === '日期格式不正确',
+    )
   } finally {
     store?.closeDatabase()
     delete process.env.LIVESTOCK_DB_FILE

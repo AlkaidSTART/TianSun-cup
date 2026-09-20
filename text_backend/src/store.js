@@ -337,3 +337,83 @@ export async function getStats() {
 
   return Object.fromEntries(Object.entries(row).map(([key, value]) => [key, Number(value)]))
 }
+
+const todoTypeMeta = {
+  rotation: { status: '待确认', tone: 'warn' },
+  inspection: { status: '待执行', tone: 'ok' },
+  vaccination: { status: '待执行', tone: 'ok' },
+  maintenance: { status: '待执行', tone: 'ok' },
+  device: { status: '待处理', tone: 'warn' },
+  custom: { status: '待执行', tone: 'ok' },
+}
+
+const allowedTodoTypes = new Set(Object.keys(todoTypeMeta))
+const todoSelect = `
+  SELECT
+    id,
+    type,
+    todo_date AS date,
+    todo_time AS time,
+    title,
+    detail,
+    status,
+    tone,
+    created_at AS createdAt,
+    updated_at AS updatedAt
+  FROM todos
+`
+
+function isTodoDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const date = new Date(`${value}T00:00:00Z`)
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
+}
+
+function normalizeTodo(row) {
+  return row ? { ...row, id: String(row.id) } : undefined
+}
+
+function validateTodoPayload(payload = {}) {
+  const errors = {}
+  const type = cleanText(payload.type)
+  const date = cleanText(payload.date)
+  const time = cleanText(payload.time)
+  const title = cleanText(payload.title)
+  const detail = cleanText(payload.detail)
+
+  if (!allowedTodoTypes.has(type)) errors.type = '请选择有效的待办类型'
+  if (!isTodoDate(date)) errors.date = '日期格式不正确'
+  if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time)) errors.time = '时间格式不正确'
+  if (!title) errors.title = '请填写事项名称'
+  else if (title.length > 60) errors.title = '事项名称不能超过 60 个字符'
+  if (detail.length > 240) errors.detail = '备注不能超过 240 个字符'
+
+  if (Object.keys(errors).length > 0) {
+    throw new ApiError(400, '待办事项校验失败', errors)
+  }
+
+  const meta = todoTypeMeta[type]
+  return { type, date, time, title, detail, status: meta.status, tone: meta.tone }
+}
+
+export async function listTodos(filters = {}) {
+  const date = cleanText(filters.date)
+  if (date && !isTodoDate(date)) throw new ApiError(400, '日期格式不正确')
+  if (date) {
+    return db.prepare(`${todoSelect} WHERE todo_date = ? ORDER BY todo_time ASC, id ASC`)
+      .all(date)
+      .map(normalizeTodo)
+  }
+  return db.prepare(`${todoSelect} ORDER BY todo_date ASC, todo_time ASC, id ASC`).all().map(normalizeTodo)
+}
+
+export async function createTodo(payload) {
+  const todo = validateTodoPayload(payload)
+  const now = new Date().toISOString()
+  const result = db.prepare(`
+    INSERT INTO todos (type, todo_date, todo_time, title, detail, status, tone, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(todo.type, todo.date, todo.time, todo.title, todo.detail, todo.status, todo.tone, now, now)
+
+  return normalizeTodo(db.prepare(`${todoSelect} WHERE id = ?`).get(result.lastInsertRowid))
+}

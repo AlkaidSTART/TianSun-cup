@@ -6,13 +6,10 @@ import DashboardView from './views/DashboardView.vue'
 import LivestockView from './views/LivestockView.vue'
 import PastureView from './views/PastureView.vue'
 import ProfileView from './views/ProfileView.vue'
-import { startTodoCleanup } from './data/todoList'
 
 type ViewName = 'dashboard' | 'alerts' | 'livestock' | 'pasture' | 'profile' | 'consultation'
 const validViews: ViewName[] = ['dashboard', 'alerts', 'livestock', 'pasture', 'profile', 'consultation']
 const currentView = ref<ViewName>('dashboard')
-let stopTodoCleanup: (() => void) | undefined
-
 function readView(): ViewName {
   const hash = window.location.hash.replace(/^#/, '') as ViewName
   return validViews.includes(hash) ? hash : 'dashboard'
@@ -30,12 +27,10 @@ function navigate(view: string) {
 }
 
 onMounted(() => {
-  stopTodoCleanup = startTodoCleanup()
   syncView()
   window.addEventListener('hashchange', syncView)
 })
 onBeforeUnmount(() => {
-  stopTodoCleanup?.()
   window.removeEventListener('hashchange', syncView)
 })
 </script>
