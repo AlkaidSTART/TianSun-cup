@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { AREAS, HERDER_SITES, OWNERS, STATUS } from './config.js';
+import { AREAS, HERDER_ACTIVITY_RANGES, HERDER_SITES, OWNERS, STATUS } from './config.js';
 
 const LIVESTOCK_COUNT = 60;
 const MIN_DISTANCE_DEGREES = 0.002;
@@ -65,6 +65,8 @@ function randomPointInPolygon(polygon, random, occupiedPositions) {
   throw new Error(`[livestock-sprites] 位置生成失败：${MAX_POSITION_ATTEMPTS} 次尝试后仍无法满足 ${MIN_DISTANCE_DEGREES}° 最小间距`);
 }
 
+// 第 1 天掉线名单：固定种子洗牌后选出 OFFLINE_COUNT 头，只标记「谁会在第 1 天掉线」。
+// 掉线/恢复的具体时刻由 livestock-offline.js 的时间表驱动，因此这里的 status 一律等于健康状态。
 function createStatuses(random) {
   const statuses = [
     ...Array(48).fill('normal'),
@@ -83,13 +85,14 @@ function createStatuses(random) {
     [candidateIndexes[index], candidateIndexes[otherIndex]] = [candidateIndexes[otherIndex], candidateIndexes[index]];
   }
   const offlineIndexes = new Set(candidateIndexes.slice(0, OFFLINE_COUNT));
-  return statuses.map((lastHealthStatus, index) => ({
-    status: offlineIndexes.has(index) ? 'offline' : lastHealthStatus,
-    lastHealthStatus
+  return statuses.map((healthStatus, index) => ({
+    status: healthStatus,
+    lastHealthStatus: healthStatus,
+    dayOfflineCandidate: offlineIndexes.has(index)
   }));
 }
 
-function createLivestockData() {
+export function createLivestockData() {
   const random = createSeededRandom(RANDOM_SEED);
   const statusAssignments = createStatuses(random);
   const occupiedPositions = [];
@@ -102,16 +105,20 @@ function createLivestockData() {
     if (!area || area.quality === '禁牧') {
       throw new Error(`[livestock-sprites] 牧户 ${owner.name} 没有合法的可放牧草场`);
     }
+    // 出生位置以该牧户的活动范围（放牧区 + 休息区）为边界，而不是整块草场：
+    // area-a 由扎西家（北）与央金家（南）分治，用整块草场会把牲畜放到对方范围里。
+    const activityRange = HERDER_ACTIVITY_RANGES.find((candidate) => candidate.ownerId === owner.id);
+    const spawnPolygon = activityRange?.polygon ?? area.polygon;
 
     return Array.from({ length: owner.count }, () => {
-      const [longitude, latitude] = randomPointInPolygon(area.polygon, random, occupiedPositions);
+      const [longitude, latitude] = randomPointInPolygon(spawnPolygon, random, occupiedPositions);
       occupiedPositions.push([longitude, latitude]);
-      const { status, lastHealthStatus } = statusAssignments[livestockIndex];
+      const { status, lastHealthStatus, dayOfflineCandidate } = statusAssignments[livestockIndex];
       const sequence = livestockIndex + 1;
       const id = `SC-2026-${String(341 + sequence).padStart(5, '0')}`;
       livestockIndex += 1;
 
-      const metricStatus = status === 'offline' ? lastHealthStatus : status;
+      const metricStatus = status;
       const temperatureBase = metricStatus === 'abnormal' ? 40.1 : metricStatus === 'attention' ? 39.3 : 38.5;
       const heartRateBase = metricStatus === 'abnormal' ? 96 : metricStatus === 'attention' ? 84 : 72;
       const ruminationBase = metricStatus === 'abnormal' ? 22 : metricStatus === 'attention' ? 28 : 46;
@@ -119,11 +126,6 @@ function createLivestockData() {
       const heartRate = Math.round(heartRateBase + (random() - 0.5) * 10);
       const rumination = Math.round(ruminationBase + (random() - 0.5) * 8);
       const recordedAt = `2026-09-17T${String(9 + Math.floor(sequence / 50)).padStart(2, '0')}:${String((sequence * 7) % 60).padStart(2, '0')}:00+08:00`;
-      const offlineDurationMinutes = status === 'offline' ? 35 + ((sequence * 47) % 270) : 0;
-      const lastOnlineTime = status === 'offline'
-        ? new Date(new Date('2026-09-17T10:30:00+08:00').getTime() - offlineDurationMinutes * 60000).toISOString()
-        : null;
-      const latestTelemetryTime = lastOnlineTime ?? recordedAt;
 
       return {
         id,
@@ -133,10 +135,11 @@ function createLivestockData() {
         longitude,
         latitude,
         status,
-        ...(status === 'offline' ? {
-          lastOnlineTime,
-          offlineDuration: offlineDurationMinutes * 60
-        } : {}),
+        // 第 1 天掉线名单标记（具体掉线时刻见 livestock-offline.js）
+        dayOfflineCandidate,
+        // 掉线相关字段：出生时为空，设备掉线期间由模拟时钟写入
+        lastOnlineTime: null,
+        offlineDuration: 0,
         temperature,
         heartRate,
         rumination,
@@ -150,10 +153,10 @@ function createLivestockData() {
           deviceId: `COLLAR-AB-${String(sequence).padStart(4, '0')}`,
           deviceType: 'GNSS 智能项圈',
           protocol: 'MQTT',
-          lastSeenAt: latestTelemetryTime
+          lastSeenAt: recordedAt
         },
         telemetry: {
-          recordedAt: latestTelemetryTime,
+          recordedAt,
           healthStatus: status,
           lastHealthStatus,
           metrics: {
@@ -212,9 +215,9 @@ function validatePositions(livestock) {
     status,
     livestock.filter((animal) => animal.status === status).length
   ]));
-  const offlineIds = livestock.filter((animal) => animal.status === 'offline').map((animal) => animal.id);
-  console.info('[livestock-sprites] 状态数量自检:', statusCounts);
-  console.info('[livestock-sprites] 掉线光点编号:', offlineIds);
+  const offlineCandidateIds = livestock.filter((animal) => animal.dayOfflineCandidate).map((animal) => animal.id);
+  console.info('[livestock-sprites] 出生状态数量自检:', statusCounts);
+  console.info('[livestock-sprites] 第 1 天掉线名单（固定种子）:', offlineCandidateIds);
   if (violations.length > 0) throw new Error(`[livestock-sprites] 发现 ${violations.length} 对间距违规光点`);
   return { minimumDistance, closestPair, violations };
 }
