@@ -38,13 +38,26 @@
         <div class="area-key site-key"><i class="rest-key-mark"></i>夜间休息区</div>
         <hr />
         <div class="simulation-panel" aria-label="放牧时间模拟">
-          <div class="simulation-heading"><span>放牧时间</span><strong id="simulation-time-label">10:00 · 放牧</strong></div>
+          <div class="simulation-heading">
+            <span>放牧时间</span>
+            <span id="simulation-day-label" class="simulation-day">第 1 天</span>
+            <strong id="simulation-time-label">10:00 · 放牧</strong>
+          </div>
           <input id="simulation-time" type="range" min="0" max="24" step="0.05" value="10" aria-label="模拟时间" />
           <div class="simulation-controls">
             <button id="simulation-toggle" type="button">暂停</button>
             <label>倍率<select id="simulation-speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
           </div>
         </div>
+      </aside>
+
+      <aside id="message-feed" class="message-feed" aria-label="消息提醒">
+        <header class="message-feed-header">
+          <span class="message-feed-title">消息提醒</span>
+          <span id="message-count" class="message-count">0</span>
+          <button id="message-clear" class="message-clear" type="button">清空</button>
+        </header>
+        <ul id="message-list" class="message-list" aria-live="polite" aria-relevant="additions"></ul>
       </aside>
 
       <aside id="detail-panel" class="detail-panel" aria-live="polite" hidden>

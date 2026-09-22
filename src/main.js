@@ -4,8 +4,25 @@ import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { TileMap } from 'three-tile';
-import { AREAS, HERDER_SITES, MAP_BOUNDS, MAP_CENTER, STATUS } from './config.js';
-import { createLivestockSpriteSystem, getAreaMetrics, pointInPolygon } from './livestock-sprites.js';
+import { AREAS, HERDER_ACTIVITY_RANGES, HERDER_SITES, MAP_BOUNDS, MAP_CENTER, STATUS } from './config.js';
+import { createLivestockSpriteSystem, getAreaMetrics } from './livestock-sprites.js';
+import {
+  DAY_ONE,
+  DAY_ONE_PHASE_HOURS,
+  normalizeHour,
+  phaseLabelAtHour,
+  planDayOneMotions,
+  smoothStep,
+  validateDayOneMotion
+} from './livestock-day1-motion.js';
+import {
+  REJOIN_HOURS,
+  createDayOneOfflineSchedule,
+  hoursSinceOfflineStart,
+  hoursSinceRecovery,
+  isOfflineAtHour,
+  validateDayOneOfflineSchedule
+} from './livestock-offline.js';
 import { createMapSources } from './map-sources.js';
 import './style.css';
 
@@ -32,8 +49,151 @@ const offlineAlert = document.querySelector('#offline-alert');
 const sceneTooltip = document.querySelector('#scene-tooltip');
 const simulationTime = document.querySelector('#simulation-time');
 const simulationTimeLabel = document.querySelector('#simulation-time-label');
+const simulationDayLabel = document.querySelector('#simulation-day-label');
 const simulationSpeed = document.querySelector('#simulation-speed');
 const simulationToggle = document.querySelector('#simulation-toggle');
+const messageList = document.querySelector('#message-list');
+const messageCount = document.querySelector('#message-count');
+const messageClear = document.querySelector('#message-clear');
+
+const MESSAGE_KINDS = {
+  overflow: { icon: '⚠️' },
+  prohibited: { icon: '🚫' },
+  offline: { icon: '📴' },
+  recover: { icon: '✅' },
+};
+
+function formatMessageTime(date = new Date()) {
+  return date.toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+// 消息卡片统一使用界面里的模拟时间，格式如「第 1 天 08:30」。
+function formatSimulationStamp(hour) {
+  return `第 ${DAY_ONE} 天 ${formatSimulationHour(hour)}`;
+}
+
+function createMessageFeed() {
+  const items = [];
+  let nextId = 0;
+
+  function isPinnedToLatest() {
+    if (!messageList) return true;
+    return messageList.scrollHeight - messageList.scrollTop - messageList.clientHeight < 24;
+  }
+
+  function scrollToLatest() {
+    if (!messageList) return;
+    // 直接对齐到最新消息：平滑滚动在部分环境下会中途停止，导致最新消息没进入可视区
+    messageList.scrollTop = messageList.scrollHeight;
+  }
+
+  function renderEmptyState() {
+    if (!messageList || items.length) return;
+    const empty = document.createElement('li');
+    empty.className = 'message-empty';
+    empty.textContent = '暂无消息';
+    messageList.append(empty);
+  }
+
+  function updateCount() {
+    if (messageCount) messageCount.textContent = String(items.length);
+  }
+
+  function createRow(item, animate) {
+    const row = document.createElement('li');
+    row.className = animate ? 'message-item new' : 'message-item';
+    row.dataset.kind = item.kind;
+    row.dataset.id = item.id;
+    const icon = document.createElement('span');
+    icon.className = 'message-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = item.icon;
+    const body = document.createElement('span');
+    body.className = 'message-text';
+    body.textContent = item.text;
+    const stamp = document.createElement('span');
+    stamp.className = 'message-time';
+    stamp.textContent = item.time;
+    row.append(icon, body, stamp);
+    return row;
+  }
+
+  function push({ kind = 'overflow', text = '', time = formatMessageTime(), animate = true } = {}) {
+    if (!messageList) return null;
+    const meta = MESSAGE_KINDS[kind] ?? MESSAGE_KINDS.overflow;
+    const item = { id: `msg-${++nextId}`, kind, text, time, icon: meta.icon };
+    const pinned = isPinnedToLatest();
+    const wasEmpty = items.length === 0;
+
+    if (wasEmpty) messageList.replaceChildren();
+    messageList.append(createRow(item, animate));
+
+    items.push(item);
+    updateCount();
+    if (pinned) {
+      scrollToLatest();
+      // 列表首次出现滚动条会触发重新换行，补一次对齐，确保最新消息进入可视区
+      requestAnimationFrame(() => {
+        if (pinned) scrollToLatest();
+      });
+    }
+    return item;
+  }
+
+  // 按时间轴整体重绘：只显示「模拟时间 ≤ 当前进度」的消息，因此拖动进度条能正反过滤。
+  function setItems(entries) {
+    if (!messageList) return;
+    items.length = 0;
+    messageList.replaceChildren();
+    if (!entries.length) {
+      renderEmptyState();
+      updateCount();
+      return;
+    }
+    entries.forEach((entry) => {
+      const meta = MESSAGE_KINDS[entry.kind] ?? MESSAGE_KINDS.overflow;
+      const item = {
+        id: `msg-${++nextId}`,
+        kind: entry.kind,
+        text: entry.text,
+        time: entry.time,
+        icon: meta.icon
+      };
+      items.push(item);
+      messageList.append(createRow(item, false));
+    });
+    updateCount();
+    scrollToLatest();
+  }
+
+  function clear() {
+    items.length = 0;
+    if (messageList) messageList.replaceChildren();
+    renderEmptyState();
+    updateCount();
+  }
+
+  return { push, setItems, clear, scrollToLatest, items };
+}
+
+const messageFeed = createMessageFeed();
+window.__messageFeed = messageFeed;
+
+// 消息卡片固定左下角：高度取屏幕 33%（上限 360px）并与图例面板避让，再整体收 10%。
+function layoutMessageFeed() {
+  const feed = document.querySelector('#message-feed');
+  const legend = document.querySelector('.legend-panel');
+  const bar = document.querySelector('.statusbar');
+  if (!feed || !legend) return;
+  const gap = 12;
+  const heightScale = 0.9;
+  const preferredHeight = Math.min(innerHeight * 0.33, 360);
+  const bottomOffset = bar ? innerHeight - bar.getBoundingClientRect().top : 46;
+  const available = innerHeight - legend.getBoundingClientRect().bottom - gap - bottomOffset;
+  feed.style.height = `${Math.max(158, Math.min(preferredHeight, available) * heightScale)}px`;
+}
+
+messageClear?.addEventListener('click', () => messageFeed.clear());
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x8ba3b1);
@@ -167,6 +327,69 @@ const livestockSpriteSystem = createLivestockSpriteSystem({
   groundOffset: LIVESTOCK_MOTION_GROUND_OFFSET
 });
 const { livestock, sprites: animalSprites } = livestockSpriteSystem;
+
+// —— 第 1 天设备掉线 ——
+// 掉线名单来自 livestock-sprites.js 的固定种子标记，掉线时刻/时长见 livestock-offline.js。
+const offlineSchedule = createDayOneOfflineSchedule(livestock);
+const offlineEntriesByAnimal = new Map(offlineSchedule.map((entry) => [entry.animal, entry]));
+offlineSchedule.forEach((entry) => {
+  entry.isOffline = false;
+  entry.frozenPosition = null;
+  entry.rejoinComplete = true;
+});
+const offlineValidation = validateDayOneOfflineSchedule(offlineSchedule);
+window.__dayOneOffline = { schedule: offlineSchedule, validation: offlineValidation, applyOfflineState };
+
+// 第 1 天提醒消息的时间线：由掉线计划直接推导出「几点会发生什么」，
+// 每条消息都带模拟时间，渲染时按当前进度过滤，所以拖动进度条能正反重放。
+function buildMessageTimeline(schedule) {
+  const grouped = new Map();
+  schedule.forEach((entry) => {
+    const offlineAt = grouped.get(entry.startHour) ?? { offline: 0, recover: 0 };
+    offlineAt.offline += 1;
+    grouped.set(entry.startHour, offlineAt);
+
+    const recoverAt = grouped.get(entry.endHour) ?? { offline: 0, recover: 0 };
+    recoverAt.recover += 1;
+    grouped.set(entry.endHour, recoverAt);
+  });
+
+  return [...grouped.entries()]
+    .sort((left, right) => left[0] - right[0])
+    .flatMap(([hour, counts]) => {
+      const events = [];
+      if (counts.offline) events.push({ hour, kind: 'offline', text: `${counts.offline} 头牲畜设备掉线` });
+      if (counts.recover) events.push({ hour, kind: 'recover', text: `${counts.recover} 头牲畜已恢复在线` });
+      return events;
+    });
+}
+
+const messageTimeline = buildMessageTimeline(offlineSchedule);
+window.__messageTimeline = messageTimeline;
+let renderedMessageKey = '';
+
+function syncMessageTimeline(hour) {
+  const current = normalizeHour(hour);
+  const visible = messageTimeline.filter((event) => event.hour <= current + 1e-6);
+  const key = visible.map((event) => `${event.hour}:${event.kind}`).join('|');
+  if (key === renderedMessageKey) return;
+  renderedMessageKey = key;
+  messageFeed.setItems(visible.map((event) => ({
+    kind: event.kind,
+    text: event.text,
+    time: formatSimulationStamp(event.hour)
+  })));
+}
+
+// 模拟时钟 → 真实时间戳（第 1 天以 2026-09-17 为基准日）。
+function simulationTimestamp(hour) {
+  const totalMinutes = Math.round(normalizeHour(hour) * 60) % 1440;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return new Date(
+    `2026-09-17T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00+08:00`
+  ).toISOString();
+}
 
 function densifyRing(coordinates, subdivisions = 4) {
   return coordinates.flatMap(([longitude, latitude], index) => {
@@ -368,143 +591,169 @@ async function addSettlementSites() {
   });
 }
 
-function createSeededRandom(seed) {
-  let value = seed >>> 0;
-  return () => {
-    value += 0x6d2b79f5;
-    let result = value;
-    result = Math.imul(result ^ result >>> 15, result | 1);
-    result ^= result + Math.imul(result ^ result >>> 7, result | 61);
-    return ((result ^ result >>> 14) >>> 0) / 4294967296;
+// —— 第 1 天早出晚归轨迹 ——
+// 轨迹（夜间休息锚点 + 放牧航点）全部由 livestock-day1-motion.js 在经纬度空间生成，
+// 并逐段校验落在该牧户 HERDER_ACTIVITY_RANGES 的活动范围内（见 validateDayOneMotion）。
+const FIRST_LEG_SUBDIVISIONS = 6;
+const GRAZING_LEG_SUBDIVISIONS = 2;
+let motionPlans = [];
+
+// 在相邻航点之间加密采样，让长达 1-3 公里的出牧/归牧位移也贴着地形起伏走。
+function subdivideGeoPath(points, subdivisions) {
+  const dense = [];
+  for (let index = 0; index + 1 < points.length; index += 1) {
+    const [startLongitude, startLatitude] = points[index];
+    const [endLongitude, endLatitude] = points[index + 1];
+    for (let step = 0; step < subdivisions; step += 1) {
+      const ratio = step / subdivisions;
+      dense.push([
+        THREE.MathUtils.lerp(startLongitude, endLongitude, ratio),
+        THREE.MathUtils.lerp(startLatitude, endLatitude, ratio)
+      ]);
+    }
+  }
+  dense.push([...points[points.length - 1]]);
+  return dense;
+}
+
+function buildDayOneGeoPath({ restAnchor, waypoints }) {
+  const outbound = subdivideGeoPath([restAnchor, waypoints[0]], FIRST_LEG_SUBDIVISIONS);
+  const grazing = subdivideGeoPath(waypoints, GRAZING_LEG_SUBDIVISIONS);
+  const coordinates = [...outbound.slice(0, -1), ...grazing];
+  return {
+    coordinates,
+    // 第一个放牧航点在整条路径上的位置：出牧段结束、放牧段开始的分界点。
+    grazingStartProgress: (outbound.length - 1) / (coordinates.length - 1)
   };
 }
 
-function polygonCenter(polygon) {
-  const total = polygon.reduce(
-    (sum, [longitude, latitude]) => [sum[0] + longitude, sum[1] + latitude],
-    [0, 0]
-  );
-  return [total[0] / polygon.length, total[1] / polygon.length];
-}
-
-function segmentStaysInPolygon(start, end, polygon, sampleCount = 16) {
-  for (let index = 0; index <= sampleCount; index += 1) {
-    const progress = index / sampleCount;
-    const point = [
-      THREE.MathUtils.lerp(start[0], end[0], progress),
-      THREE.MathUtils.lerp(start[1], end[1], progress)
-    ];
-    if (!pointInPolygon(point, polygon)) return false;
-  }
-  return true;
-}
-
-function randomRoutePoint(origin, minimumDistance, maximumDistance, area, random) {
-  for (let attempt = 0; attempt < 1000; attempt += 1) {
-    const angle = random() * Math.PI * 2;
-    const distance = THREE.MathUtils.lerp(minimumDistance, maximumDistance, random());
-    const candidate = [
-      origin[0] + Math.cos(angle) * distance,
-      origin[1] + Math.sin(angle) * distance
-    ];
-    if (pointInPolygon(candidate, area.polygon)
-      && segmentStaysInPolygon(origin, candidate, area.polygon)) {
-      return candidate;
-    }
-  }
-  return null;
-}
-
-function createGrazingRoute(animal, site, area, random) {
-  const restCenter = polygonCenter(site.restZone.polygon);
-  const firstPoint = randomRoutePoint(restCenter, 0.012, 0.026, area, random)
-    ?? (segmentStaysInPolygon(restCenter, [animal.longitude, animal.latitude], area.polygon)
-      ? [animal.longitude, animal.latitude]
-      : null);
-  if (!firstPoint) throw new Error(`${animal.id} cannot create a route from its rest zone`);
-
-  const route = [firstPoint];
-  let current = firstPoint;
-  for (let waypointIndex = 1; waypointIndex < 8; waypointIndex += 1) {
-    const next = randomRoutePoint(current, 0.0035, 0.009, area, random)
-      ?? randomRoutePoint(current, 0.0015, 0.004, area, random)
-      ?? current;
-    route.push(next);
-    current = next;
-  }
-  return route;
-}
-
 async function prepareMotionTargets() {
-  const ownerIndexes = new Map();
-  await mapWithConcurrency(livestock, 8, async (animal, animalIndex) => {
-    if (animal.status === 'offline') {
-      delete animal.motion;
+  motionPlans = planDayOneMotions({ livestock, sites: HERDER_SITES, ranges: HERDER_ACTIVITY_RANGES });
+
+  const requests = [];
+  motionPlans.forEach((plan, planIndex) => {
+    if (!plan.moving) {
+      // 掉线个体保留最后已知位置，不参与运动。
+      delete plan.animal.motion;
       return;
     }
-    const site = HERDER_SITES.find((candidate) => candidate.ownerId === animal.ownerId);
-    const area = AREAS.find((candidate) => candidate.id === animal.areaId);
-    if (!site?.runtime || !area || area.quality === '禁牧') {
-      throw new Error(`${animal.id} does not have a valid grazing area`);
+    const { coordinates, grazingStartProgress } = buildDayOneGeoPath(plan);
+    plan.grazingStartProgress = grazingStartProgress;
+    plan.worldPath = new Array(coordinates.length);
+    coordinates.forEach((coordinate, pointIndex) => requests.push({ planIndex, pointIndex, coordinate }));
+  });
+
+  const samples = await mapWithConcurrency(requests, 8, ({ coordinate }) => sampleGround(coordinate[0], coordinate[1]));
+  requests.forEach((request, requestIndex) => {
+    const groundPoint = samples[requestIndex];
+    motionPlans[request.planIndex].worldPath[request.pointIndex] = groundPoint
+      ? groundPoint.clone().add(new THREE.Vector3(0, LIVESTOCK_MOTION_GROUND_OFFSET, 0))
+      : null;
+  });
+
+  motionPlans.forEach((plan) => {
+    if (!plan.moving) return;
+    const { animal, worldPath, grazingStartProgress } = plan;
+    if (worldPath.some((point) => !point)) throw new Error(`${animal.id} 早出晚归轨迹地形采样失败`);
+    animal.motion = {
+      restPosition: worldPath[0].clone(),
+      route: worldPath,
+      grazingStartProgress
+    };
+  });
+
+  applySimulationHour(simulationHour);
+  validateDayOneMotion(motionPlans);
+}
+
+function routePositionAt(route, progress) {
+  if (route.length === 1) return route[0].clone();
+  const scaled = THREE.MathUtils.clamp(progress, 0, 1) * (route.length - 1);
+  const index = Math.min(Math.floor(scaled), route.length - 2);
+  return route[index].clone().lerp(route[index + 1], smoothStep(scaled - index));
+}
+
+// 按模拟时钟推进第 1 天掉线状态：进入掉线时段 → 变灰、原地不动；时段结束 → 恢复原健康状态并平滑归位。
+// 另外把状态推进到「允许任意跳转」：拖回早先时刻，掉线状态会重新按时间轴判定。
+function applyOfflineState(hour) {
+  if (!offlineSchedule.length) return;
+  const normalizedHour = normalizeHour(hour);
+  let stateChanged = false;
+
+  offlineSchedule.forEach((entry) => {
+    const { animal } = entry;
+    const offlineNow = isOfflineAtHour(entry, normalizedHour);
+
+    if (offlineNow && !entry.isOffline) {
+      entry.isOffline = true;
+      stateChanged = true;
+      entry.rejoinComplete = false;
+      entry.frozenPosition = animal.sprite ? animal.sprite.position.clone() : null;
+      animal.lastOnlineTime = simulationTimestamp(entry.startHour);
+      animal.offlineDuration = 0;
+      livestockSpriteSystem.setStatus(animal, 'offline');
+    } else if (!offlineNow && entry.isOffline) {
+      entry.isOffline = false;
+      stateChanged = true;
+      animal.offlineDuration = Math.round(entry.durationHours * 3600);
+      livestockSpriteSystem.setStatus(animal, animal.telemetry.lastHealthStatus);
     }
 
-    const ownerIndex = ownerIndexes.get(animal.ownerId) ?? 0;
-    ownerIndexes.set(animal.ownerId, ownerIndex + 1);
-    const restPoints = site.runtime.restPoints.length ? site.runtime.restPoints : [site.runtime.restCenter];
-    const restBase = restPoints[ownerIndex % restPoints.length];
-    const restGroundPosition = site.runtime.restCenter.clone().lerp(restBase, 0.58);
-    const restPosition = new THREE.Vector3(
-      restGroundPosition.x,
-      restGroundPosition.y + LIVESTOCK_MOTION_GROUND_OFFSET,
-      restGroundPosition.z
-    );
-
-    const random = createSeededRandom(2026091701 + animalIndex * 7919);
-    const coordinates = createGrazingRoute(animal, site, area, random);
-    const sampled = await mapWithConcurrency(
-      coordinates,
-      8,
-      ([longitude, latitude]) => sampleGround(longitude, latitude)
-    );
-    if (sampled.some((point) => !point)) throw new Error(`${animal.id} motion path sampling failed`);
-
-    const path = sampled.map((groundPoint) => new THREE.Vector3(
-      groundPoint.x,
-      groundPoint.y + LIVESTOCK_MOTION_GROUND_OFFSET,
-      groundPoint.z
-    ));
-    animal.motion = { site, restPosition, path };
-    if (animal.sprite) animal.sprite.position.copy(path[0]);
+    if (entry.isOffline) {
+      animal.offlineDuration = Math.round(hoursSinceOfflineStart(entry, normalizedHour) * 3600);
+    }
   });
+
+  // 统计/图例/顶部预警栏跟着「实际状态变化」刷新，而不是跟着「是否推送过提醒」，
+  // 否则把时间轴拖回去再走一遍时，掉线头数会停留在上一次的旧值。
+  if (stateChanged) updateFilters();
 }
 
-function smoothStep(value) {
-  const clamped = THREE.MathUtils.clamp(value, 0, 1);
-  return clamped * clamped * (3 - 2 * clamped);
+function applySimulationHour(hour) {
+  applyOfflineState(hour);
+  updateLivestockMotion(hour);
+  syncMessageTimeline(hour);
 }
 
-function pasturePositionAt(path, progress) {
-  if (path.length === 1) return path[0].clone();
-  const scaled = THREE.MathUtils.clamp(progress, 0, 1) * (path.length - 1);
-  const index = Math.min(Math.floor(scaled), path.length - 2);
-  const nextIndex = index + 1;
-  return path[index].clone().lerp(path[nextIndex], smoothStep(scaled - index));
-}
-
+// 06:00-07:00 出牧 · 07:00-17:00 放牧 · 17:00-18:00 归牧 · 18:00-06:00 休息区休息
 function updateLivestockMotion(hour) {
-  const normalizedHour = ((hour % 24) + 24) % 24;
+  const normalizedHour = normalizeHour(hour);
+  const { outbound, grazing, returning, resting } = DAY_ONE_PHASE_HOURS;
   livestock.forEach((animal) => {
-    if (!animal.sprite || !animal.motion || animal.status === 'offline') return;
-    const { restPosition, path } = animal.motion;
+    if (!animal.sprite || !animal.motion) return;
+    const offlineEntry = offlineEntriesByAnimal.get(animal);
+    // 掉线期间：保留最后已知位置，原地不动。
+    if (offlineEntry?.isOffline) {
+      if (offlineEntry.frozenPosition) animal.sprite.position.copy(offlineEntry.frozenPosition);
+      return;
+    }
+    const { restPosition, route, grazingStartProgress } = animal.motion;
     let nextPosition;
-    if (normalizedHour >= 6 && normalizedHour < 7) {
-      nextPosition = restPosition.clone().lerp(pasturePositionAt(path, 0), smoothStep(normalizedHour - 6));
-    } else if (normalizedHour >= 7 && normalizedHour < 17) {
-      nextPosition = pasturePositionAt(path, (normalizedHour - 7) / 10);
-    } else if (normalizedHour >= 17 && normalizedHour < 18) {
-      nextPosition = pasturePositionAt(path, 1).lerp(restPosition, smoothStep(normalizedHour - 17));
+    if (normalizedHour >= outbound && normalizedHour < grazing) {
+      nextPosition = restPosition.clone().lerp(
+        routePositionAt(route, grazingStartProgress),
+        smoothStep(normalizedHour - outbound)
+      );
+    } else if (normalizedHour >= grazing && normalizedHour < returning) {
+      const progress = THREE.MathUtils.lerp(
+        grazingStartProgress,
+        1,
+        (normalizedHour - grazing) / (returning - grazing)
+      );
+      nextPosition = routePositionAt(route, progress);
+    } else if (normalizedHour >= returning && normalizedHour < resting) {
+      nextPosition = routePositionAt(route, 1).lerp(restPosition, smoothStep(normalizedHour - returning));
     } else {
       nextPosition = restPosition.clone();
+    }
+    // 恢复在线后的 0.25 小时内，从冻结位置平滑回到当天轨迹，避免瞬移。
+    if (offlineEntry?.frozenPosition && !offlineEntry.rejoinComplete) {
+      const sinceRecovery = hoursSinceRecovery(offlineEntry, normalizedHour);
+      if (sinceRecovery < REJOIN_HOURS) {
+        nextPosition = offlineEntry.frozenPosition.clone().lerp(nextPosition, smoothStep(sinceRecovery / REJOIN_HOURS));
+      } else {
+        offlineEntry.rejoinComplete = true;
+      }
     }
     animal.sprite.position.copy(nextPosition);
   });
@@ -519,17 +768,17 @@ function formatSimulationHour(hour) {
 
 function updateSimulationUi() {
   if (simulationTime) simulationTime.value = String(simulationHour);
+  const hour = normalizeHour(simulationHour);
+  if (simulationDayLabel) simulationDayLabel.textContent = `第 ${DAY_ONE} 天`;
   if (simulationTimeLabel) {
-    const hour = ((simulationHour % 24) + 24) % 24;
-    const phase = hour >= 6 && hour < 7 ? '出牧' : hour >= 7 && hour < 17 ? '放牧' : hour >= 17 && hour < 18 ? '归牧' : '休息';
-    simulationTimeLabel.textContent = `${formatSimulationHour(hour)} · ${phase}`;
+    simulationTimeLabel.textContent = `${formatSimulationHour(hour)} · ${phaseLabelAtHour(hour)}`;
   }
   if (simulationToggle) simulationToggle.textContent = simulationRunning ? '暂停' : '继续';
 }
 
 function setSimulationHour(value) {
   simulationHour = Number(value) % 24;
-  updateLivestockMotion(simulationHour);
+  applySimulationHour(simulationHour);
   updateSimulationUi();
 }
 
@@ -834,6 +1083,7 @@ async function bootstrap() {
 }
 
 function resize() {
+  layoutMessageFeed();
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
@@ -848,7 +1098,7 @@ function animate(time) {
   lastAnimationTime = time;
   if (simulationRunning && livestock.some((animal) => animal.motion)) {
     simulationHour = (simulationHour + deltaSeconds * simulationHoursPerSecond) % 24;
-    updateLivestockMotion(simulationHour);
+    applySimulationHour(simulationHour);
     updateSimulationUi();
   }
   controls.update();
@@ -859,5 +1109,11 @@ function animate(time) {
 
 bootstrap();
 animate(0);
+
+// 消息卡片启动时为空：只显示运行时真实产生的消息。
+// 目前接入的是第 1 天掉线 / 恢复提醒（见 applyOfflineState()），
+// 越界 / 禁牧提醒等尚未接入真实事件，不再预置演示消息。
+messageFeed.clear();
+layoutMessageFeed();
 
 export { livestock, getAreaMetrics };
