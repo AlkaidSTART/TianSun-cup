@@ -1,4 +1,5 @@
 import express from 'express'
+import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ApiError } from './store.js'
@@ -10,7 +11,10 @@ const currentDir = path.dirname(fileURLToPath(import.meta.url))
 const serviceDir = path.resolve(currentDir, '..')
 const adminDir = path.join(serviceDir, 'public')
 const threeDir = path.resolve(serviceDir, '../../apps/pasture-3d/dist')
-const webDir = path.resolve(serviceDir, '../../apps/pasture-web/dist')
+const webDistDir = path.resolve(serviceDir, '../../apps/pasture-web/dist')
+const webDir = fs.existsSync(path.join(webDistDir, 'build', 'h5', 'index.html'))
+  ? path.join(webDistDir, 'build', 'h5')
+  : webDistDir
 
 export const app = express()
 app.disable('x-powered-by')
