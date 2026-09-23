@@ -1,0 +1,61 @@
+
+> smart-pasture-wechat@0.1.0 dev:h5 C:\Users\m1738\Desktop\小程序\TianSun-cup\app
+> uni -p h5 "--" "--host" "127.0.0.1"
+
+Please note that in running mode, due to log output, sourcemap, and uncompressed source code, the performance and package size are not as good as release mode.
+Vite is compiled on demand, and clicking on an uncompiled page at runtime will compile first and then load, resulting in a slower display, and there is no such problem after release.
+Compiler version: 5.26（vue3）
+Compiling...
+
+​本地运行未开启 manifest.json 的 uniStatistics.debug，uni统计不采集、不上报；发行模式不受影响​
+
+Re-optimizing dependencies because lockfile has changed
+
+  vite v5.2.8 dev server running at:
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: http://10.10.186.230:5173/
+
+  ready in 2255ms.
+
+15:13:07 [vite] hmr update /src/App.vue?vue&type=style&index=0&lang.css
+15:15:13 [vite] hmr update /src/App.vue?vue&type=style&index=0&lang.css
+15:15:15 [vite] hmr update /src/App.vue?vue&type=style&index=0&lang.css
+15:15:18 [vite] hmr update /src/views/DashboardView.vue
+15:16:00 [vite] hmr update /src/App.vue?vue&type=style&index=0&lang.css
+15:18:20 [vite] hmr update /src/App.vue?vue&type=style&index=0&lang.css
+15:18:23 [vite] hmr update /src/App.vue?vue&type=style&index=0&lang.css
+15:18:26 [vite] hmr update /src/App.vue?vue&type=style&index=0&lang.css
+15:18:28 [vite] hmr update /src/views/DashboardView.vue
+15:21:10 [vite] page reload white-check.html
+15:21:12 [vite] page reload white-check.html
+15:22:50 [vite] page reload white-check.html
+16:34:51 [vite] changed tsconfig file detected: C:\Users\m1738\Desktop\小程序\TianSun-cup\app\tsconfig.json - Clearing cache and forcing full-reload to ensure TypeScript is compiled with updated config values.
+16:34:51 [vite] page reload design/alerts.html
+16:34:51 [vite] page reload index.html
+16:34:51 [vite] page reload design/consultation.html
+16:34:51 [vite] page reload design/index.html
+16:34:51 [vite] page reload design/livestock.html
+16:34:51 [vite] page reload design/pasture.html
+16:34:51 [vite] page reload design/smart-pasture-wechat.html
+16:34:51 [vite] page reload design/profile.html
+16:34:51 [vite] hmr update /src/App.vue, /src/App.vue?vue&type=style&index=0&lang.css
+16:34:51 [vite] hmr update /src/views/DashboardView.vue
+16:34:51 [vite] page reload src/design-source.css
+16:34:51 [vite] page reload src/main.ts
+16:34:51 [vite] hmr update /src/pages/dashboard/index.vue
+16:34:51 [vite] page reload src/secondary-source.css
+16:34:51 [vite] page reload src/styles.css
+16:34:51 [vite] page reload src/services/http.ts
+16:34:51 [vite] page reload src/services/todoApi.ts
+16:34:51 [vite] hmr update /src/views/DashboardView.vue
+16:34:51 [vite] page reload src/utils/navigation.ts
+16:34:51 [vite] hmr update /src/views/DashboardView.vue, /src/views/DashboardView.vue?vue&type=style&index=0&scoped=336c5134&lang.css
+16:34:51 [vite] vite.config.ts changed, restarting server...
+
+欢迎将web站点部署到uniCloud前端网页托管平台，高速、免费、安全、省心，详见：https://uniapp.dcloud.io/uniCloud/hosting
+16:34:52 [vite] server restarted.
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
+​(!) Could not auto-determine entry point from rollupOptions or html files and there are no explicit optimizeDeps.include patterns. Skipping dependency pre-bundling.​
