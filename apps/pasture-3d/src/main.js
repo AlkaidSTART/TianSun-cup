@@ -23,6 +23,26 @@ import {
   isOfflineAtHour,
   validateDayOneOfflineSchedule
 } from './livestock-offline.js';
+import {
+  SIMULATION_TOTAL_HOURS,
+  attachOverflowPaths,
+  createDayTwoOverflowSchedule,
+  dayIndexAtHour,
+  formatSimulationStamp,
+  isProhibitedPoint,
+  overflowActualExitHour,
+  overflowGeoPositionAtHour,
+  overflowReentryHour,
+  overflowWorldPositionAtHour,
+  validateDayTwoOverflowMotion,
+  validateDayTwoOverflowSchedule
+} from './livestock-day2-overflow.js';
+import {
+  createDayThreeOverflowSchedule,
+  validateDayThreeOverflowMotion,
+  validateDayThreeOverflowSchedule
+} from './livestock-day3-overflow.js';
+import { createOverflowMarkerLayer } from './overflow-marker.js';
 import { createMapSources } from './map-sources.js';
 import './style.css';
 
@@ -55,9 +75,13 @@ const simulationToggle = document.querySelector('#simulation-toggle');
 const messageList = document.querySelector('#message-list');
 const messageCount = document.querySelector('#message-count');
 const messageClear = document.querySelector('#message-clear');
+const prohibitedModal = document.querySelector('#prohibited-modal');
+const prohibitedModalBody = document.querySelector('#prohibited-modal-body');
+const prohibitedModalDismiss = document.querySelector('#prohibited-modal-dismiss');
+const prohibitedModalDetail = document.querySelector('#prohibited-modal-detail');
 
 const MESSAGE_KINDS = {
-  overflow: { icon: '⚠️' },
+  overflow: { icon: '！' },
   prohibited: { icon: '🚫' },
   offline: { icon: '📴' },
   recover: { icon: '✅' },
@@ -65,11 +89,6 @@ const MESSAGE_KINDS = {
 
 function formatMessageTime(date = new Date()) {
   return date.toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-}
-
-// 消息卡片统一使用界面里的模拟时间，格式如「第 1 天 08:30」。
-function formatSimulationStamp(hour) {
-  return `第 ${DAY_ONE} 天 ${formatSimulationHour(hour)}`;
 }
 
 function createMessageFeed() {
@@ -340,37 +359,95 @@ offlineSchedule.forEach((entry) => {
 const offlineValidation = validateDayOneOfflineSchedule(offlineSchedule);
 window.__dayOneOffline = { schedule: offlineSchedule, validation: offlineValidation, applyOfflineState };
 
-// 第 1 天提醒消息的时间线：由掉线计划直接推导出「几点会发生什么」，
-// 每条消息都带模拟时间，渲染时按当前进度过滤，所以拖动进度条能正反重放。
-function buildMessageTimeline(schedule) {
-  const grouped = new Map();
-  schedule.forEach((entry) => {
-    const offlineAt = grouped.get(entry.startHour) ?? { offline: 0, recover: 0 };
-    offlineAt.offline += 1;
-    grouped.set(entry.startHour, offlineAt);
+// —— 第 2 天越界 ——
+// 名单 / 时刻 / 锚点全部来自 livestock-day2-overflow.js（固定种子），这里只负责上屏。
+const overflowSchedule = createDayTwoOverflowSchedule({ livestock, ranges: HERDER_ACTIVITY_RANGES });
+const overflowEntriesByAnimal = new Map(overflowSchedule.map((entry) => [entry.animal, entry]));
+const overflowValidation = validateDayTwoOverflowSchedule(overflowSchedule);
+let overflowMarkerLayer = null;
 
-    const recoverAt = grouped.get(entry.endHour) ?? { offline: 0, recover: 0 };
+// —— 第 3 天越界 ——
+// 多吉家 2 头：SC-2026-00376（常规越界）+ SC-2026-00380（进入禁牧区）。
+const dayThreeOverflowSchedule = createDayThreeOverflowSchedule({ livestock, ranges: HERDER_ACTIVITY_RANGES });
+const dayThreeEntriesByAnimal = new Map(dayThreeOverflowSchedule.map((entry) => [entry.animal, entry]));
+const dayThreeValidation = validateDayThreeOverflowSchedule(dayThreeOverflowSchedule);
+const prohibitedEntry = dayThreeOverflowSchedule.find((entry) => entry.overflowType === 'prohibited') ?? null;
+// 预计算光点实际进入禁牧区的时刻：沿越界路径逐步采样，找到第一个落在禁牧多边形内的时刻。
+// 消息卡片和弹窗都用这个时刻触发，而不是越界时段起点。
+const prohibitedActualEntryHour = (() => {
+  if (!prohibitedEntry) return null;
+  const step = 0.05;
+  for (let hour = prohibitedEntry.startHour; hour <= prohibitedEntry.endHour + 1e-9; hour += step) {
+    const position = overflowGeoPositionAtHour(prohibitedEntry, hour);
+    if (position && isProhibitedPoint(position)) return hour;
+  }
+  return prohibitedEntry.startHour;
+})();
+let prohibitedModalShownForEntry = null;
+let modalPausedSimulation = false;
+
+// 提醒消息的时间线：第 1 天掉线（0-24 时）+ 第 2 天越界（24-48 时）+ 第 3 天越界（48-72 时）
+// 合并成一条按绝对时刻排序的列表。每条消息都带模拟时间，渲染时按当前进度过滤，
+// 所以拖动进度条能正反重放。
+function buildMessageTimeline(offlineEntries, overflowEntries, dayThreeEntries = [], prohibitedEntryHour = null) {
+  const events = [];
+
+  const groupedOffline = new Map();
+  offlineEntries.forEach((entry) => {
+    const offlineAt = groupedOffline.get(entry.startHour) ?? { offline: 0, recover: 0 };
+    offlineAt.offline += 1;
+    groupedOffline.set(entry.startHour, offlineAt);
+
+    const recoverAt = groupedOffline.get(entry.endHour) ?? { offline: 0, recover: 0 };
     recoverAt.recover += 1;
-    grouped.set(entry.endHour, recoverAt);
+    groupedOffline.set(entry.endHour, recoverAt);
+  });
+  groupedOffline.forEach((counts, hour) => {
+    if (counts.offline) events.push({ hour, kind: 'offline', text: `${counts.offline} 头牲畜设备掉线` });
+    if (counts.recover) events.push({ hour, kind: 'recover', text: `${counts.recover} 头牲畜已恢复在线` });
   });
 
-  return [...grouped.entries()]
-    .sort((left, right) => left[0] - right[0])
-    .flatMap(([hour, counts]) => {
-      const events = [];
-      if (counts.offline) events.push({ hour, kind: 'offline', text: `${counts.offline} 头牲畜设备掉线` });
-      if (counts.recover) events.push({ hour, kind: 'recover', text: `${counts.recover} 头牲畜已恢复在线` });
-      return events;
+  overflowEntries.forEach((entry) => {
+    const actualExit = overflowActualExitHour(entry);
+    events.push({
+      hour: actualExit,
+      kind: 'overflow',
+      text: `${entry.ownerName} ${entry.animalId} 越界，已自动提醒牧民`
     });
+    events.push({
+      hour: overflowReentryHour(entry),
+      kind: 'recover',
+      text: `${entry.ownerName} ${entry.animalId} 已回到活动范围`
+    });
+  });
+
+  dayThreeEntries.forEach((entry) => {
+    const isProhibited = entry.overflowType === 'prohibited';
+    const entryHour = isProhibited && prohibitedEntryHour != null ? prohibitedEntryHour : overflowActualExitHour(entry);
+    events.push({
+      hour: entryHour,
+      kind: isProhibited ? 'prohibited' : 'overflow',
+      text: isProhibited
+        ? `${entry.ownerName} ${entry.animalId} 进入禁牧区，已触发告警`
+        : `${entry.ownerName} ${entry.animalId} 越界，已自动提醒牧民`
+    });
+    events.push({
+      hour: overflowReentryHour(entry),
+      kind: 'recover',
+      text: `${entry.ownerName} ${entry.animalId} 已回到活动范围`
+    });
+  });
+
+  return events.sort((left, right) => left.hour - right.hour);
 }
 
-const messageTimeline = buildMessageTimeline(offlineSchedule);
+const messageTimeline = buildMessageTimeline(offlineSchedule, overflowSchedule, dayThreeOverflowSchedule, prohibitedActualEntryHour);
 window.__messageTimeline = messageTimeline;
 let renderedMessageKey = '';
 
 function syncMessageTimeline(hour) {
-  const current = normalizeHour(hour);
-  const visible = messageTimeline.filter((event) => event.hour <= current + 1e-6);
+  // 三个白天共用一条 0-72 的绝对时间轴，这里不用再折回 24 小时制。
+  const visible = messageTimeline.filter((event) => event.hour <= hour + 1e-6);
   const key = visible.map((event) => `${event.hour}:${event.kind}`).join('|');
   if (key === renderedMessageKey) return;
   renderedMessageKey = key;
@@ -662,8 +739,55 @@ async function prepareMotionTargets() {
     };
   });
 
-  applySimulationHour(simulationHour);
+  // 第 2 天越界路径（越界起点 → 锚点 → 锚点附近绕圈 → 回到当天轨迹）同样要贴地采样，
+  // 避免越界时光点悬空或被山体吃掉。路径上的点与经纬度路径一一对应。
+  attachOverflowPaths(overflowSchedule, motionPlans);
+  const overflowRequests = [];
+  overflowSchedule.forEach((entry) => {
+    entry.overflowWorldPath = new Array(entry.overflowGeoPath.length);
+    entry.overflowGeoPath.forEach((coordinate, pointIndex) => {
+      overflowRequests.push({ entry, pointIndex, coordinate });
+    });
+  });
+  const overflowSamples = await mapWithConcurrency(
+    overflowRequests,
+    8,
+    ({ coordinate }) => sampleGround(coordinate[0], coordinate[1])
+  );
+  overflowRequests.forEach((request, requestIndex) => {
+    const groundPoint = overflowSamples[requestIndex];
+    if (!groundPoint) throw new Error(`${request.entry.animalId} 第 2 天越界路径地形采样失败`);
+    request.entry.overflowWorldPath[request.pointIndex] = groundPoint
+      .clone()
+      .add(new THREE.Vector3(0, LIVESTOCK_MOTION_GROUND_OFFSET, 0));
+  });
+
+  // 第 3 天越界路径的地理坐标已在 createDayThreeOverflowSchedule 里生成（含禁牧区专用路径），
+  // 这里只做贴地采样，把经纬度路径转成世界坐标。
+  const dayThreeRequests = [];
+  dayThreeOverflowSchedule.forEach((entry) => {
+    entry.overflowWorldPath = new Array(entry.overflowGeoPath.length);
+    entry.overflowGeoPath.forEach((coordinate, pointIndex) => {
+      dayThreeRequests.push({ entry, pointIndex, coordinate });
+    });
+  });
+  const dayThreeSamples = await mapWithConcurrency(
+    dayThreeRequests,
+    8,
+    ({ coordinate }) => sampleGround(coordinate[0], coordinate[1])
+  );
+  dayThreeRequests.forEach((request, requestIndex) => {
+    const groundPoint = dayThreeSamples[requestIndex];
+    if (!groundPoint) throw new Error(`${request.entry.animalId} 第 3 天越界路径地形采样失败`);
+    request.entry.overflowWorldPath[request.pointIndex] = groundPoint
+      .clone()
+      .add(new THREE.Vector3(0, LIVESTOCK_MOTION_GROUND_OFFSET, 0));
+  });
+
+  applySimulationHour(simulationHour, { announce: false, initial: true });
   validateDayOneMotion(motionPlans);
+  validateDayTwoOverflowMotion(overflowSchedule);
+  validateDayThreeOverflowMotion(dayThreeOverflowSchedule);
 }
 
 function routePositionAt(route, progress) {
@@ -677,12 +801,13 @@ function routePositionAt(route, progress) {
 // 另外把状态推进到「允许任意跳转」：拖回早先时刻，掉线状态会重新按时间轴判定。
 function applyOfflineState(hour) {
   if (!offlineSchedule.length) return;
-  const normalizedHour = normalizeHour(hour);
+  // 掉线只发生在第 1 天：判定用绝对时刻，第 2 天（24-48 时）一律不重复掉线。
+  const offlineDay = dayIndexAtHour(hour) === DAY_ONE;
   let stateChanged = false;
 
   offlineSchedule.forEach((entry) => {
     const { animal } = entry;
-    const offlineNow = isOfflineAtHour(entry, normalizedHour);
+    const offlineNow = offlineDay && isOfflineAtHour(entry, hour);
 
     if (offlineNow && !entry.isOffline) {
       entry.isOffline = true;
@@ -700,7 +825,7 @@ function applyOfflineState(hour) {
     }
 
     if (entry.isOffline) {
-      animal.offlineDuration = Math.round(hoursSinceOfflineStart(entry, normalizedHour) * 3600);
+      animal.offlineDuration = Math.round(hoursSinceOfflineStart(entry, hour) * 3600);
     }
   });
 
@@ -713,6 +838,7 @@ function applySimulationHour(hour) {
   applyOfflineState(hour);
   updateLivestockMotion(hour);
   syncMessageTimeline(hour);
+  checkProhibitedModal(hour);
 }
 
 // 06:00-07:00 出牧 · 07:00-17:00 放牧 · 17:00-18:00 归牧 · 18:00-06:00 休息区休息
@@ -746,6 +872,19 @@ function updateLivestockMotion(hour) {
     } else {
       nextPosition = restPosition.clone();
     }
+    // 第 2 天越界：整段越界是一条第 1 天轨迹 → 越界锚点 → 绕圈 → 回到轨迹的匀速路径，
+    // 位置直接取自这条路径，不再和当天轨迹做插值（插值会让两个速度叠加成「抽搐」）。
+    const overflowEntry = overflowEntriesByAnimal.get(animal);
+    if (overflowEntry) {
+      const overflowPosition = overflowWorldPositionAtHour(overflowEntry, hour, new THREE.Vector3());
+      if (overflowPosition) nextPosition = overflowPosition;
+    }
+    // 第 3 天越界：与第 2 天同逻辑，只是路径可能进入禁牧区。
+    const dayThreeEntry = dayThreeEntriesByAnimal.get(animal);
+    if (dayThreeEntry) {
+      const dayThreePosition = overflowWorldPositionAtHour(dayThreeEntry, hour, new THREE.Vector3());
+      if (dayThreePosition) nextPosition = dayThreePosition;
+    }
     // 恢复在线后的 0.25 小时内，从冻结位置平滑回到当天轨迹，避免瞬移。
     if (offlineEntry?.frozenPosition && !offlineEntry.rejoinComplete) {
       const sinceRecovery = hoursSinceRecovery(offlineEntry, normalizedHour);
@@ -769,7 +908,7 @@ function formatSimulationHour(hour) {
 function updateSimulationUi() {
   if (simulationTime) simulationTime.value = String(simulationHour);
   const hour = normalizeHour(simulationHour);
-  if (simulationDayLabel) simulationDayLabel.textContent = `第 ${DAY_ONE} 天`;
+  if (simulationDayLabel) simulationDayLabel.textContent = `第 ${dayIndexAtHour(simulationHour)} 天`;
   if (simulationTimeLabel) {
     simulationTimeLabel.textContent = `${formatSimulationHour(hour)} · ${phaseLabelAtHour(hour)}`;
   }
@@ -777,7 +916,7 @@ function updateSimulationUi() {
 }
 
 function setSimulationHour(value) {
-  simulationHour = Number(value) % 24;
+  simulationHour = ((Number(value) % SIMULATION_TOTAL_HOURS) + SIMULATION_TOTAL_HOURS) % SIMULATION_TOTAL_HOURS;
   applySimulationHour(simulationHour);
   updateSimulationUi();
 }
@@ -916,6 +1055,12 @@ function closeDetails() {
   modelPreview.hidden = true;
   delete detailPanel.dataset.kind;
   detailPanel.hidden = true;
+  // 详情面板是从禁牧区弹窗的「查看详情」打开的 → 关闭后恢复时间轴。
+  if (modalPausedSimulation) {
+    simulationRunning = true;
+    updateSimulationUi();
+    modalPausedSimulation = false;
+  }
 }
 
 function showSceneTooltip(text, event) {
@@ -1038,6 +1183,68 @@ function connectMapEvents(tileMap) {
   });
 }
 
+// —— 禁牧区弹窗 ——
+// 当光点实际进入禁牧区时弹出一次，自动暂停模拟；
+// 点「知道了」直接关闭并恢复时间轴，点「查看详情」关闭弹窗但保持暂停，
+// 等用户关闭详情面板后再恢复（除非用户之前手动暂停）。
+function setupProhibitedModal() {
+  if (!prohibitedModal) return;
+  prohibitedModalDismiss?.addEventListener('click', hideProhibitedModal);
+  prohibitedModalDetail?.addEventListener('click', () => {
+    // 只隐藏弹窗，不恢复时间轴——等详情面板关闭后再恢复。
+    if (prohibitedModal) prohibitedModal.hidden = true;
+    if (prohibitedEntry?.animal) {
+      const sprite = prohibitedEntry.animal.sprite;
+      if (sprite) {
+        openDetails(sprite);
+        controls.target.copy(sprite.position);
+        camera.lookAt(sprite.position);
+      }
+    }
+  });
+}
+
+function showProhibitedModal(entry) {
+  if (!prohibitedModal || prohibitedModalShownForEntry === entry) return;
+  prohibitedModalShownForEntry = entry;
+  if (prohibitedModalBody) {
+    prohibitedModalBody.textContent = `${entry.ownerName} ${entry.animalId} 于${formatSimulationStamp(prohibitedActualEntryHour ?? entry.startHour)}进入东南禁牧区，已自动提醒牧民。`;
+  }
+  prohibitedModal.hidden = false;
+  // 自动暂停模拟时钟，关闭弹窗时再恢复。
+  modalPausedSimulation = simulationRunning;
+  if (simulationRunning) {
+    simulationRunning = false;
+    updateSimulationUi();
+  }
+}
+
+function hideProhibitedModal() {
+  if (!prohibitedModal) return;
+  prohibitedModal.hidden = true;
+  if (modalPausedSimulation) {
+    simulationRunning = true;
+    updateSimulationUi();
+  }
+  modalPausedSimulation = false;
+}
+
+// 每帧实时检测：光点经纬度是否落在禁牧区多边形内。
+// 不依赖预设时间点——只有光点真正进入 area-d 才触发弹窗，离开后拖回时间轴可重新触发。
+function checkProhibitedModal(hour) {
+  if (!prohibitedEntry) return;
+  const position = overflowGeoPositionAtHour(prohibitedEntry, hour);
+  const insideProhibited = Boolean(position && isProhibitedPoint(position));
+  if (insideProhibited && prohibitedModalShownForEntry !== prohibitedEntry) {
+    showProhibitedModal(prohibitedEntry);
+  }
+  // 把时间轴拖回光点进入禁牧区之前 → 重置弹窗状态，下次再进入可以重新弹出。
+  if (!insideProhibited && prohibitedModalShownForEntry === prohibitedEntry && hour < (prohibitedActualEntryHour ?? prohibitedEntry.startHour)) {
+    prohibitedModalShownForEntry = null;
+    if (!prohibitedModal.hidden) hideProhibitedModal();
+  }
+}
+
 async function bootstrap() {
   if (!token || token === 'your_token_here') {
     showFatal('缺少天地图 Key', '请在 .env.local 中配置 VITE_TIANDITU_TOKEN');
@@ -1073,6 +1280,14 @@ async function bootstrap() {
     await addLivestock();
     loadingMessage.textContent = '正在初始化早出晚归运动轨迹...';
     await prepareMotionTargets();
+    loadingMessage.textContent = '正在布置第 2 天越界提醒...';
+    const combinedOverflowSchedule = [...overflowSchedule, ...dayThreeOverflowSchedule];
+    overflowMarkerLayer = createOverflowMarkerLayer({
+      parent: livestockSpriteSystem.spriteGroup,
+      schedule: combinedOverflowSchedule
+    });
+    overflowMarkerLayer.update(simulationHour);
+    setupProhibitedModal();
     setSimulationHour(10);
     if (animalSprites.length !== livestock.length) setServiceState(`${livestock.length - animalSprites.length} 个光点贴地失败`, 'error');
     hideLoading();
@@ -1097,12 +1312,13 @@ function animate(time) {
   const deltaSeconds = lastAnimationTime ? Math.min((time - lastAnimationTime) / 1000, 0.1) : 0;
   lastAnimationTime = time;
   if (simulationRunning && livestock.some((animal) => animal.motion)) {
-    simulationHour = (simulationHour + deltaSeconds * simulationHoursPerSecond) % 24;
+    simulationHour = (simulationHour + deltaSeconds * simulationHoursPerSecond) % SIMULATION_TOTAL_HOURS;
     applySimulationHour(simulationHour);
     updateSimulationUi();
   }
   controls.update();
   if (map) map.update(camera);
+  overflowMarkerLayer?.update(simulationHour);
   livestockSpriteSystem.update(time, camera);
   renderer.render(scene, camera);
 }
@@ -1111,9 +1327,32 @@ bootstrap();
 animate(0);
 
 // 消息卡片启动时为空：只显示运行时真实产生的消息。
-// 目前接入的是第 1 天掉线 / 恢复提醒（见 applyOfflineState()），
-// 越界 / 禁牧提醒等尚未接入真实事件，不再预置演示消息。
+// 目前接入的是第 1 天掉线 / 恢复提醒与第 2 天越界 / 归位提醒，
+// 全部由时间轴推导，不预置演示消息。
 messageFeed.clear();
 layoutMessageFeed();
+
+window.__dayTwoOverflow = {
+  schedule: overflowSchedule,
+  validation: overflowValidation,
+  markerLayer: () => overflowMarkerLayer,
+  get simulationHour() {
+    return simulationHour;
+  },
+  setSimulationHour
+};
+
+window.__dayThreeOverflow = {
+  schedule: dayThreeOverflowSchedule,
+  validation: dayThreeValidation,
+  markerLayer: () => overflowMarkerLayer,
+  get simulationHour() {
+    return simulationHour;
+  },
+  setSimulationHour
+};
+
+// 调试/自动化用的场景句柄（只读引用，不参与渲染逻辑）。
+window.__sceneView = { scene, camera, controls, renderer };
 
 export { livestock, getAreaMetrics };

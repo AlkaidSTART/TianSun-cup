@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { Baby, LoaderCircle, PawPrint, Plus, ShoppingBasket, X } from 'lucide-vue-next'
+import AppDateTimePicker from '../components/AppDateTimePicker.vue'
+import AppSelect from '../components/AppSelect.vue'
 import PageChrome from '../components/PageChrome.vue'
+import { navigateToView } from '../utils/navigation'
 import {
   livestockApi,
   type LivestockRecord,
@@ -104,6 +107,10 @@ const filteredAnimals = computed(() => activeFilter.value === 'all'
 const selectedMother = computed(() => selected.value?.motherId
   ? mothers.value.find((item) => item.id === selected.value?.motherId)
   : undefined)
+const motherSelectOptions = computed(() => [
+  { label: '请选择母畜', value: '' },
+  ...mothers.value.map((mother) => ({ label: motherLabel(mother), value: mother.id })),
+])
 
 function animalType(status: LivestockStatus): AnimalType {
   if (status === 'normal') return 'ok'
@@ -154,7 +161,7 @@ function showMessage(message: string) {
 }
 
 function navigate(view: string) {
-  window.location.hash = view
+  navigateToView(view)
 }
 
 async function loadData(options: { silent?: boolean } = {}) {
@@ -276,6 +283,7 @@ function exportList() {
   const csv = [header, ...csvRows]
     .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(','))
     .join('\n')
+  // #ifdef H5
   const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
@@ -283,6 +291,10 @@ function exportList() {
   link.download = `牲畜档案-${localDateValue()}.csv`
   link.click()
   URL.revokeObjectURL(url)
+  // #endif
+  // #ifndef H5
+  uni.setClipboardData({ data: csv })
+  // #endif
   showMessage(`已导出 ${rows.length} 条档案`)
 }
 
@@ -302,8 +314,8 @@ onMounted(() => {
       <div class="page-head">
         <div>
           <div class="eyebrow">LIVESTOCK REGISTRY</div>
-          <h1>牲畜</h1>
-          <p>
+          <h1 class="page-title">牲畜</h1>
+          <p class="page-description">
             {{ stats.total }} 头在册 · {{ stats.online }} 头在线 ·
             <span :class="{ 'sync-error': loadError }">{{ loadError ? '后台未连接' : '数据已同步后台' }}</span>
           </p>
@@ -403,26 +415,25 @@ onMounted(() => {
           </label>
           <label class="todo-field">
             <span>品种</span>
-            <select v-model="form.breed" @change="syncSpecies">
-              <option v-for="breed in breedOptions" :key="breed" :value="breed">{{ breed }}</option>
-            </select>
+            <AppSelect v-model="form.breed" :options="breedOptions" @change="syncSpecies" />
           </label>
           <label class="todo-field">
             <span>性别</span>
-            <select v-model="form.sex">
-              <option value="female">母</option>
-              <option value="male">公</option>
-            </select>
+            <AppSelect
+              v-model="form.sex"
+              :options="[{ label: '母', value: 'female' }, { label: '公', value: 'male' }]"
+            />
           </label>
           <label class="todo-field">
             <span>{{ form.sourceType === 'born' ? '出生日期' : '购入日期' }}</span>
-            <input v-model="form.eventDate" type="date" />
+            <AppDateTimePicker v-model="form.eventDate" mode="date" />
           </label>
           <label class="todo-field">
             <span>所属草场</span>
-            <select v-model="form.pastureId">
-              <option v-for="pasture in pastureOptions" :key="pasture.id" :value="pasture.id">{{ pasture.name }}</option>
-            </select>
+            <AppSelect
+              v-model="form.pastureId"
+              :options="pastureOptions.map((pasture) => ({ label: pasture.name, value: pasture.id }))"
+            />
           </label>
           <label class="todo-field todo-field-full">
             <span>所属牧户</span>
@@ -434,10 +445,7 @@ onMounted(() => {
           <div class="form-section-title">繁育信息</div>
           <label class="todo-field mother-field">
             <span>母亲是谁 <em>必选</em></span>
-            <select v-model="form.motherId">
-              <option value="">请选择母畜</option>
-              <option v-for="mother in mothers" :key="mother.id" :value="mother.id">{{ motherLabel(mother) }}</option>
-            </select>
+            <AppSelect v-model="form.motherId" :options="motherSelectOptions" />
           </label>
           <p class="field-help">仅展示已建档的适繁母畜，选择后后台会校验母畜档案、性别和月龄。</p>
         </template>

@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ArrowLeftRight, Bell, ChevronRight, ClipboardCheck, MessageSquarePlus, Moon, RefreshCw, Sprout, StickyNote, Syringe, Wrench, X } from 'lucide-vue-next'
+import AppDateTimePicker from '../components/AppDateTimePicker.vue'
+import AppIcon from '../components/AppIcon.vue'
+import AppSelect from '../components/AppSelect.vue'
 import PageChrome from '../components/PageChrome.vue'
+import { navigateToView } from '../utils/navigation'
 import {
   addTodo,
   loadTodos,
@@ -23,7 +26,14 @@ const pastureOptions = ['东沟草场', '河谷草场', '北坡草场']
 const workAreas = ['东沟草场', '河谷草场', '北坡草场', '全场']
 const herdOptions = ['东沟牛群', '河谷牛群', '北坡牛群', '全场牲畜']
 const todoTypeOrder: TodoType[] = ['rotation', 'inspection', 'vaccination', 'maintenance', 'device', 'custom']
-const typeIcons = { rotation: ArrowLeftRight, inspection: ClipboardCheck, vaccination: Syringe, maintenance: Sprout, device: Wrench, custom: StickyNote }
+const todoIconNames: Record<TodoType, string> = {
+  rotation: 'loop',
+  inspection: 'checkbox',
+  vaccination: 'medal',
+  maintenance: 'star',
+  device: 'gear',
+  custom: 'compose',
+}
 const notePlaceholders: Record<TodoType, string> = {
   rotation: '例如：优先转移需关注牛群',
   inspection: '例如：重点检查北侧围栏',
@@ -218,43 +228,43 @@ async function submitTodo() {
     editSaving.value = false
   }
 }
-function navigate(view: string) { window.location.hash = view }
+function navigate(view: string) { navigateToView(view) }
 </script>
 
 <template>
   <PageChrome active="profile" :refresh="false" @navigate="navigate">
     <main class="content">
-      <div class="page-head"><div><div class="eyebrow">ACCOUNT & SETTINGS</div><h1>我的</h1><p>管理个人信息、通知与显示偏好</p></div></div>
+      <div class="page-head"><div><div class="eyebrow">ACCOUNT & SETTINGS</div><h1 class="page-title">我的</h1><p class="page-description">管理个人信息、通知与显示偏好</p></div></div>
       <section class="panel"><div class="profile-summary"><div class="avatar profile-avatar">李</div><div><strong>李建国</strong><div>乡镇畜牧技术员 · 阿坝示范区</div></div><span class="status ok">在线</span></div></section>
-      <div class="grid-2 section"><section class="panel"><div class="panel-head"><div class="panel-title">工作偏好</div><span class="panel-meta">本设备</span></div><div class="list"><button class="list-row setting" @click="nightMode = !nightMode; showMessage('已切换夜间模式')"><span class="icon-disc"><Moon :size="15" /></span><span class="list-main"><strong>夜间模式</strong><small>冬季 17:00 后降低亮度</small></span><span class="chip">{{ nightMode ? '开启' : '关闭' }}</span></button><button class="list-row setting" @click="showMessage('告警通知已开启')"><span class="icon-disc"><Bell :size="15" /></span><span class="list-main"><strong>告警通知</strong><small>异常体温、超载与离线提醒</small></span><span class="status ok">已开启</span></button><button class="list-row setting" @click="showMessage('数据刷新频率已更新')"><span class="icon-disc"><RefreshCw :size="15" /></span><span class="list-main"><strong>数据刷新频率</strong><small>地图与列表自动同步</small></span><span class="chip">30 秒</span></button></div></section><section class="panel"><div class="panel-head"><div class="panel-title">示范区信息</div><span class="panel-meta">只读</span></div><div class="list profile-info"><div class="list-row"><span class="list-main"><strong>四川 · 阿坝县</strong><small>高原放牧示范区</small></span><span class="mono muted-value">P-A</span></div><div class="list-row"><span class="list-main"><strong>当前数据源</strong><small>牲畜模拟 · 待办 SQLite</small></span><span class="status ok">稳定</span></div><div class="list-row"><span class="list-main"><strong>最近同步</strong><small>2026 / 09 / 07 14:32</small></span><span class="mono muted-value">12 秒前</span></div></div></section></div>
-      <section class="panel section"><div class="panel-head"><div><div class="panel-title">待办事项</div><div class="panel-meta">共 {{ todoItems.length }} 项 · 已连接数据库</div></div><button class="link-btn" type="button" @click="openTodoDialog">添加</button></div><div v-if="todoLoading" class="list"><div class="list-row"><span class="list-main"><strong>正在加载待办事项</strong><small>正在从 SQLite 数据库读取数据</small></span></div></div><div v-else-if="todoError" class="list"><div class="list-row"><span class="list-main"><strong>待办事项加载失败</strong><small>{{ todoError }}</small></span></div></div><div v-else-if="todoItems.length === 0" class="list"><div class="list-row"><span class="list-main"><strong>暂无待办事项</strong><small>点击右上角添加，保存后会写入数据库</small></span></div></div><div v-else class="list"><button v-for="item in todoItems" :key="item.id" class="list-row" type="button" @click="openEditTodo(item)"><span class="icon-disc" :class="`type-${item.type}`"><component :is="typeIcons[item.type]" :size="15" /></span><span class="list-main"><strong>{{ todoDisplayTitle(item) }}</strong><small>{{ todoTypeMeta[item.type].label }} · {{ item.detail }}</small></span><span class="status" :class="item.tone">{{ item.status }}</span></button></div></section><section class="panel section"><div class="panel-head"><div class="panel-title">帮助与反馈</div></div><div class="list"><button class="list-row setting" @click="navigate('consultation')"><span class="icon-disc"><MessageSquarePlus :size="15" /></span><span class="list-main"><strong>在线问诊</strong><small>联系驻场兽医，咨询牲畜健康问题</small></span><span class="status ok">医生在线</span></button><button class="list-row setting" @click="showMessage('帮助中心即将打开')"><span class="list-main"><strong>使用帮助</strong><small>查看地图、告警和轮换操作说明</small></span><ChevronRight :size="16" class="muted-icon" /></button><button class="list-row setting" @click="showMessage('反馈已记录，感谢你的建议')"><span class="list-main"><strong>问题反馈</strong><small>告诉我们现场使用中的问题</small></span><ChevronRight :size="16" class="muted-icon" /></button><button class="list-row setting" @click="showMessage('当前版本 1.0.0')"><span class="list-main"><strong>关于牧场智控</strong><small>版本与数据协议</small></span><span class="mono muted-value">v1.0.0</span></button></div></section>
+      <div class="grid-2 section"><section class="panel"><div class="panel-head"><div class="panel-title">示范区信息</div><span class="panel-meta">只读</span></div><div class="list profile-info"><div class="list-row"><span class="list-main"><strong>四川 · 阿坝县</strong><small>高原放牧示范区</small></span><span class="mono muted-value">P-A</span></div><div class="list-row"><span class="list-main"><strong>当前数据源</strong><small>牲畜模拟 · 待办 SQLite</small></span><span class="status ok">稳定</span></div><div class="list-row"><span class="list-main"><strong>最近同步</strong><small>2026 / 09 / 07 14:32</small></span><span class="mono muted-value">12 秒前</span></div></div></section></div>
+      <section class="panel section"><div class="panel-head"><div><div class="panel-title">待办事项</div><div class="panel-meta">共 {{ todoItems.length }} 项 · 已连接数据库</div></div><button class="link-btn" type="button" @click="openTodoDialog">添加</button></div><div v-if="todoLoading" class="list"><div class="list-row"><span class="list-main"><strong>正在加载待办事项</strong><small>正在从 SQLite 数据库读取数据</small></span></div></div><div v-else-if="todoError" class="list"><div class="list-row"><span class="list-main"><strong>待办事项加载失败</strong><small>{{ todoError }}</small></span></div></div><div v-else-if="todoItems.length === 0" class="list"><div class="list-row"><span class="list-main"><strong>暂无待办事项</strong><small>点击右上角添加，保存后会写入数据库</small></span></div></div><div v-else class="list"><button v-for="item in todoItems" :key="item.id" class="list-row" type="button" @click="openEditTodo(item)"><span class="icon-disc" :class="`type-${item.type}`"><AppIcon :name="todoIconNames[item.type]" :size="15" /></span><span class="list-main"><strong>{{ todoDisplayTitle(item) }}</strong><small>{{ todoTypeMeta[item.type].label }} · {{ item.detail }}</small></span><span class="status" :class="item.tone">{{ item.status }}</span></button></div></section><section class="panel section"><div class="panel-head"><div class="panel-title">帮助与反馈</div></div><div class="list"><button class="list-row setting" @click="navigate('consultation')"><span class="icon-disc"><MessageSquarePlus :size="15" /></span><span class="list-main"><strong>在线问诊</strong><small>联系驻场兽医，咨询牲畜健康问题</small></span><span class="status ok">医生在线</span></button><button class="list-row setting" @click="showMessage('帮助中心即将打开')"><span class="list-main"><strong>使用帮助</strong><small>查看地图、告警和轮换操作说明</small></span><ChevronRight :size="16" class="muted-icon" /></button><button class="list-row setting" @click="showMessage('反馈已记录，感谢你的建议')"><span class="list-main"><strong>问题反馈</strong><small>告诉我们现场使用中的问题</small></span><ChevronRight :size="16" class="muted-icon" /></button><button class="list-row setting" @click="showMessage('当前版本 1.0.0')"><span class="list-main"><strong>关于牧场智控</strong><small>版本与数据协议</small></span><span class="mono muted-value">v1.0.0</span></button></div></section>
     </main>
     <div class="drawer todo-dialog" :class="{ open: todoDialogOpen }" @click.self="closeTodoDialog">
       <div v-if="todoStep === 'type'" class="drawer-card">
         <div class="drawer-head"><h2>添加待办</h2><button class="close" type="button" aria-label="关闭" @click="closeTodoDialog"><X :size="18" /></button></div>
         <p class="todo-dialog-hint">选择事件类型</p>
-        <div class="todo-type-grid"><button v-for="type in todoTypeOrder" :key="type" class="todo-type" type="button" @click="chooseType(type)"><span class="icon-disc" :class="`type-${type}`"><component :is="typeIcons[type]" :size="15" /></span><span class="todo-type-copy"><strong>{{ todoTypeMeta[type].label }}</strong><small>{{ todoTypeMeta[type].hint }}</small></span></button></div>
+        <div class="todo-type-grid"><button v-for="type in todoTypeOrder" :key="type" class="todo-type" type="button" @click="chooseType(type)"><span class="icon-disc" :class="`type-${type}`"><AppIcon :name="todoIconNames[type]" :size="15" /></span><span class="todo-type-copy"><strong>{{ todoTypeMeta[type].label }}</strong><small>{{ todoTypeMeta[type].hint }}</small></span></button></div>
       </div>
       <form v-else class="drawer-card" @submit.prevent="submitTodo">
         <div class="drawer-head"><h2>添加{{ todoTypeMeta[todoForm.type].label }}</h2><button class="close" type="button" aria-label="关闭" @click="closeTodoDialog"><X :size="18" /></button></div>
-        <div class="todo-selected"><span class="icon-disc" :class="`type-${todoForm.type}`"><component :is="typeIcons[todoForm.type]" :size="15" /></span><span class="todo-selected-copy"><strong>{{ todoTypeMeta[todoForm.type].label }}</strong><small>{{ todoTypeMeta[todoForm.type].hint }}</small></span><button class="link-btn" type="button" @click="backToTypeStep">更换类型</button></div>
+        <div class="todo-selected"><span class="icon-disc" :class="`type-${todoForm.type}`"><AppIcon :name="todoIconNames[todoForm.type]" :size="15" /></span><span class="todo-selected-copy"><strong>{{ todoTypeMeta[todoForm.type].label }}</strong><small>{{ todoTypeMeta[todoForm.type].hint }}</small></span><button class="link-btn" type="button" @click="backToTypeStep">更换类型</button></div>
         <div class="todo-form-grid">
-          <label class="todo-field"><span>日期</span><input v-model="todoForm.date" type="date" :min="todoCurrentDate" required></label>
-          <label class="todo-field"><span>时间</span><input v-model="todoForm.time" type="time" required></label>
+          <label class="todo-field"><span>日期</span><AppDateTimePicker v-model="todoForm.date" mode="date" /></label>
+          <label class="todo-field"><span>时间</span><AppDateTimePicker v-model="todoForm.time" mode="time" /></label>
           <template v-if="todoForm.type === 'rotation'">
-            <label class="todo-field"><span>起始草场</span><select v-model="todoForm.from" required><option v-for="pasture in pastureOptions" :key="pasture" :value="pasture">{{ pasture }}</option></select></label>
-            <label class="todo-field"><span>目标草场</span><select v-model="todoForm.to" required><option v-for="pasture in pastureOptions" :key="pasture" :value="pasture">{{ pasture }}</option></select></label>
+            <label class="todo-field"><span>起始草场</span><AppSelect v-model="todoForm.from" :options="pastureOptions" /></label>
+            <label class="todo-field"><span>目标草场</span><AppSelect v-model="todoForm.to" :options="pastureOptions" /></label>
             <label class="todo-field todo-field-full"><span>预计转移数量</span><div class="todo-number"><input v-model.number="todoForm.amount" type="number" min="1" step="1" required><span>头</span></div></label>
           </template>
           <template v-else-if="todoForm.type === 'inspection'">
-            <label class="todo-field todo-field-full"><span>巡检区域</span><select v-model="todoForm.area" required><option v-for="area in workAreas" :key="area" :value="area">{{ area }}</option></select></label>
+            <label class="todo-field todo-field-full"><span>巡检区域</span><AppSelect v-model="todoForm.area" :options="workAreas" /></label>
           </template>
           <template v-else-if="todoForm.type === 'vaccination'">
-            <label class="todo-field"><span>目标畜群</span><select v-model="todoForm.herd" required><option v-for="herd in herdOptions" :key="herd" :value="herd">{{ herd }}</option></select></label>
+            <label class="todo-field"><span>目标畜群</span><AppSelect v-model="todoForm.herd" :options="herdOptions" /></label>
             <label class="todo-field"><span>疫苗 / 针次</span><input v-model.trim="todoForm.vaccine" type="text" maxlength="30" placeholder="口蹄疫疫苗第一针"></label>
           </template>
           <template v-else-if="todoForm.type === 'maintenance'">
-            <label class="todo-field todo-field-full"><span>作业区域</span><select v-model="todoForm.area" required><option v-for="area in workAreas" :key="area" :value="area">{{ area }}</option></select></label>
+            <label class="todo-field todo-field-full"><span>作业区域</span><AppSelect v-model="todoForm.area" :options="workAreas" /></label>
           </template>
           <template v-else-if="todoForm.type === 'device'">
             <label class="todo-field todo-field-full"><span>设备编号</span><input v-model.trim="todoForm.deviceId" type="text" maxlength="24" placeholder="例如：SC-2026-00220" required></label>
@@ -270,10 +280,10 @@ function navigate(view: string) { window.location.hash = view }
     <div class="drawer todo-dialog" :class="{ open: editDialogOpen }" @click.self="closeEditTodo">
       <form v-if="editingTodo" class="drawer-card" @submit.prevent="submitEditTodo">
         <div class="drawer-head"><h2>编辑待办</h2><button class="close" type="button" aria-label="关闭" @click="closeEditTodo"><X :size="18" /></button></div>
-        <div class="todo-selected"><span class="icon-disc" :class="`type-${editingTodo.type}`"><component :is="typeIcons[editingTodo.type]" :size="15" /></span><span class="todo-selected-copy"><strong>{{ todoTypeMeta[editingTodo.type].label }}</strong><small>{{ editingTodo.status }} · 点击下方内容修改</small></span></div>
+        <div class="todo-selected"><span class="icon-disc" :class="`type-${editingTodo.type}`"><AppIcon :name="todoIconNames[editingTodo.type]" :size="15" /></span><span class="todo-selected-copy"><strong>{{ todoTypeMeta[editingTodo.type].label }}</strong><small>{{ editingTodo.status }} · 点击下方内容修改</small></span></div>
         <div class="todo-form-grid">
-          <label class="todo-field"><span>日期</span><input v-model="editForm.date" type="date" required></label>
-          <label class="todo-field"><span>时间</span><input v-model="editForm.time" type="time" required></label>
+          <label class="todo-field"><span>日期</span><AppDateTimePicker v-model="editForm.date" mode="date" /></label>
+          <label class="todo-field"><span>时间</span><AppDateTimePicker v-model="editForm.time" mode="time" /></label>
           <label class="todo-field todo-field-full"><span>事项名称</span><input v-model.trim="editForm.title" type="text" maxlength="60" required></label>
           <label class="todo-field todo-field-full"><span>备注</span><textarea v-model.trim="editForm.detail" rows="4" maxlength="240" placeholder="补充事项说明"></textarea></label>
         </div>
@@ -284,7 +294,7 @@ function navigate(view: string) { window.location.hash = view }
       <div v-if="editingTodo" class="drawer-card">
         <div class="drawer-head"><h2>确认删除</h2><button class="close" type="button" aria-label="关闭" @click="cancelDeleteTodo"><X :size="18" /></button></div>
         <p class="delete-confirm-copy">删除后无法恢复，确定要删除这条待办吗？</p>
-        <div class="todo-selected"><span class="icon-disc" :class="`type-${editingTodo.type}`"><component :is="typeIcons[editingTodo.type]" :size="15" /></span><span class="todo-selected-copy"><strong>{{ editingTodo.title }}</strong><small>{{ editingTodo.date }} {{ editingTodo.time }} · {{ editingTodo.status }}</small></span></div>
+        <div class="todo-selected"><span class="icon-disc" :class="`type-${editingTodo.type}`"><AppIcon :name="todoIconNames[editingTodo.type]" :size="15" /></span><span class="todo-selected-copy"><strong>{{ editingTodo.title }}</strong><small>{{ editingTodo.date }} {{ editingTodo.time }} · {{ editingTodo.status }}</small></span></div>
         <div class="drawer-actions todo-form-actions"><button class="btn btn-secondary" type="button" @click="cancelDeleteTodo">取消</button><button class="btn todo-danger" type="button" :disabled="editSaving" @click="deleteEditingTodo">{{ editSaving ? '删除中...' : '确认删除' }}</button></div>
       </div>
     </div>

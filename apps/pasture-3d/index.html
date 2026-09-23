@@ -43,7 +43,7 @@
             <span id="simulation-day-label" class="simulation-day">第 1 天</span>
             <strong id="simulation-time-label">10:00 · 放牧</strong>
           </div>
-          <input id="simulation-time" type="range" min="0" max="24" step="0.05" value="10" aria-label="模拟时间" />
+          <input id="simulation-time" type="range" min="0" max="72" step="0.05" value="10" aria-label="模拟时间" />
           <div class="simulation-controls">
             <button id="simulation-toggle" type="button">暂停</button>
             <label>倍率<select id="simulation-speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
@@ -82,6 +82,19 @@
         <span class="loader"></span>
         <strong id="loading-title">正在连接天地图</strong>
         <span id="loading-message">准备卫星影像与地形高程...</span>
+      </div>
+
+      <div id="prohibited-modal" class="prohibited-modal" hidden>
+        <div class="prohibited-modal-backdrop"></div>
+        <div class="prohibited-modal-card" role="alertdialog" aria-labelledby="prohibited-modal-title" aria-describedby="prohibited-modal-body">
+          <div class="prohibited-modal-icon">🚫</div>
+          <h2 id="prohibited-modal-title">牲畜进入禁牧区</h2>
+          <p id="prohibited-modal-body"></p>
+          <div class="prohibited-modal-actions">
+            <button id="prohibited-modal-detail" type="button">查看详情</button>
+            <button id="prohibited-modal-dismiss" type="button" class="primary">知道了</button>
+          </div>
+        </div>
       </div>
 
       <footer class="statusbar">
