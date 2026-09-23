@@ -14,3 +14,4 @@ services/api/data/*.sqlite-*
 services/api/data/*.db
 services/api/data/*.db-*
 services/api/data/*.tmp
+3d/*
