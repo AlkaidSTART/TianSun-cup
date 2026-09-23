@@ -2,5 +2,5 @@ node_modules/
 dist/
 .env.local
 .edge-profile-panel/
-.vite/deps/*
+.vite/
 .DS_Store   
