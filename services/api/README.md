@@ -1,6 +1,6 @@
 # 统一 API 服务
 
-本 package 是仓库唯一的后端 HTTP 服务，由 Express 提供现有 API，并保留现有牲畜管理后台。
+本 package 是仓库唯一的后端 HTTP 服务，由 Express 提供现有 API，并托管 `apps/` 下三个 web 端的构建产物（H5、管理后台、Web 大屏）。前端源码不在本 package 内。
 
 - 开发：在仓库根目录运行 `npm run dev:api`
 - 启动：在仓库根目录运行 `npm start`

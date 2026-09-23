@@ -9,7 +9,9 @@ import todoRoutes from './routes/todos.js'
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url))
 const serviceDir = path.resolve(currentDir, '..')
-const adminDir = path.join(serviceDir, 'public')
+const adminSourceDir = path.resolve(serviceDir, '../../apps/pasture-admin')
+const adminDistDir = path.join(adminSourceDir, 'dist')
+const adminDir = fs.existsSync(path.join(adminDistDir, 'index.html')) ? adminDistDir : adminSourceDir
 const threeDir = path.resolve(serviceDir, '../../apps/pasture-3d/dist')
 const webDistDir = path.resolve(serviceDir, '../../apps/pasture-web/dist')
 const webDir = fs.existsSync(path.join(webDistDir, 'build', 'h5', 'index.html'))
@@ -40,12 +42,12 @@ app.use('/api', healthRoutes)
 app.use('/api', livestockRoutes)
 app.use('/api', todoRoutes)
 
-// Keep the existing management UI available at / while also exposing its
-// explicit monorepo URL. Its API requests remain rooted at /api.
-app.get('/', (request, response, next) => response.sendFile(path.join(adminDir, 'index.html'), (error) => error && next(error)))
+// All browser clients live under apps/: admin, 3D screen, and H5.
+// The admin app keeps / as a compatibility entry while /admin/ stays canonical.
 app.use('/admin', express.static(adminDir, { index: 'index.html', fallthrough: true }))
 app.use('/3d', express.static(threeDir, { index: 'index.html', fallthrough: true }))
 app.use('/app', express.static(webDir, { index: 'index.html', fallthrough: true }))
+app.use('/', express.static(adminDir, { index: 'index.html', fallthrough: true }))
 
 app.use((request, response, next) => {
   const message = request.path === '/api' || request.path.startsWith('/api/')

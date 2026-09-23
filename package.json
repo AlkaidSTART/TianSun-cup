@@ -13,7 +13,10 @@
     "dev:api": "npm run dev --workspace @tiansun/api",
     "build": "npm run build --workspaces --if-present",
     "test": "npm test --workspace @tiansun/api",
-    "start": "npm start --workspace @tiansun/api"
+    "start": "npm start --workspace @tiansun/api",
+    "dev:h5": "npm run dev --workspace @tiansun/pasture-web",
+    "dev:admin": "npm run dev --workspace @tiansun/pasture-admin",
+    "dev:screen": "npm run dev --workspace @tiansun/pasture-3d"
   },
   "engines": {
     "node": ">=22.5"

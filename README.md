@@ -2,9 +2,10 @@
 
 本仓库采用 npm workspaces 管理前端和统一 API 服务：
 
-- `apps/pasture-web`：uni-app（Vue 3 + Vite）跨端应用，可构建 H5 与微信小程序。
-- `apps/pasture-3d`：Three.js / Vite 三维放牧展示，包含主页面和 legacy 页面。
-- `services/api`：Express API、SQLite 数据层及牲畜管理后台静态资源。
+- `apps/pasture-web`：H5 端，uni-app（Vue 3 + Vite）跨端应用，可构建 H5 与微信小程序。
+- `apps/pasture-admin`：后台管理端，Vite 构建的牲畜档案管理界面。
+- `apps/pasture-3d`：Web 大屏端，Three.js / Vite 三维放牧监测，包含主页面和 legacy 页面。
+- `services/api`：Express API 与 SQLite 数据层，仅负责接口和静态资源托管，不再保存前端源码。
 - `docs/monorepo-architecture-plan.md`：目标架构和本次落地说明。
 - `docs/backend-api.md`：现有后端 API 的独立契约文档。
 
@@ -26,7 +27,7 @@ npm run build
 npm test
 ```
 
-`npm run build` 会构建 H5 端和三维端；API 使用 Node.js 直接运行，不需要单独编译。
+`npm run build` 会构建 H5 端、后台管理端和 Web 大屏端；API 使用 Node.js 直接运行，不需要单独编译。
 
 微信小程序构建：
 
@@ -44,12 +45,15 @@ npm run build:mp-weixin --workspace @tiansun/pasture-web
 npm run dev:api
 ```
 
-另开终端启动需要调试的前端：
+另开终端按需启动要调试的 web 端：
 
 ```bash
-npm run dev:app  # uni-app H5，默认 http://localhost:5173/app/
-npm run dev:3d   # 三维 Vite
+npm run dev:h5     # H5（uni-app），默认 http://localhost:5173/app/
+npm run dev:admin  # 后台管理，默认 http://localhost:5174/admin/
+npm run dev:screen # Web 大屏（Three.js），默认 http://localhost:5175/3d/
 ```
+
+`dev:app` 与 `dev:3d` 仍保留为兼容别名，分别等价于 `dev:h5` 和 `dev:screen`。三个开发服务器端口固定，可同时运行。
 
 微信小程序开发：
 
@@ -59,7 +63,7 @@ npm run dev:mp-weixin --workspace @tiansun/pasture-web
 
 随后使用微信开发者工具导入 `apps/pasture-web/dist/dev/mp-weixin`。
 
-H5 开发服务器将 `/api` 代理到 `http://127.0.0.1:3000`，可通过 `API_PROXY_TARGET` 覆盖。三维前端地图 token 可通过 `apps/pasture-3d/.env` 中的 `VITE_TIANDITU_TOKEN` 配置；未配置时不影响构建，但地图服务可能无法按预期加载。API 默认监听 `0.0.0.0:3000`，支持 `HOST`、`PORT`、`LIVESTOCK_DB_FILE` 和 `LIVESTOCK_SEED_FILE` 环境变量。
+H5 和后台开发服务器都会将 `/api` 代理到 `http://127.0.0.1:3000`，可通过 `API_PROXY_TARGET` 覆盖。Web 大屏地图 token 可通过 `apps/pasture-3d/.env` 中的 `VITE_TIANDITU_TOKEN` 配置；未配置时不影响构建，但地图服务可能无法按预期加载。API 默认监听 `0.0.0.0:3000`，支持 `HOST`、`PORT`、`LIVESTOCK_DB_FILE` 和 `LIVESTOCK_SEED_FILE` 环境变量。
 
 “牲畜”页面可新增牲畜档案，“我的”页面可新增待办事项；数据会通过 API 写入 SQLite。主页“今日代办”会自动筛选并展示当天事项。
 
@@ -87,9 +91,9 @@ powershell -ExecutionPolicy Bypass -File .\start.ps1
 
 | 内容 | 地址路径 |
 | --- | --- |
-| 牲畜管理后台（兼容默认入口） | `/` 或 `/admin/` |
-| 三维主页面 | `/3d/` |
-| 三维 legacy 页面 | `/3d/legacy.html` |
+| 管理后台（兼容默认入口） | `/` 或 `/admin/` |
+| Web 大屏主页面 | `/3d/` |
+| Web 大屏 legacy 页面 | `/3d/legacy.html` |
 | H5 界面 | `/app/` |
 | API 健康检查 | `/api/health` |
 

@@ -14,9 +14,10 @@
 
 | 组成 | 当前路径 | 职责 |
 | --- | --- | --- |
-| 三维展示 | `apps/pasture-3d/` | 原根目录 Three.js / Vite 工程，包含主页面和 legacy 页面。 |
-| Vue 界面 | `apps/pasture-web/` | 原 `app/` Vue 3 + Vite 工程；开发环境 `/api` 代理至 Express。 |
-| API 与管理后台 | `services/api/` | Express 路由、原 SQLite store/db、牲畜管理后台静态资源。 |
+| Web 大屏 | `apps/pasture-3d/` | Three.js / Vite 大屏工程，包含主页面和 legacy 页面。 |
+| H5 端 | `apps/pasture-web/` | uni-app（Vue 3 + Vite）工程；可构建 H5 与微信小程序，开发环境 `/api` 代理至 Express。 |
+| 管理后台 | `apps/pasture-admin/` | Vite 构建的牲畜档案管理后台，开发环境 `/api` 代理至 Express。 |
+| API 服务 | `services/api/` | Express 路由、SQLite store/db 与测试，仅托管前端构建产物。 |
 | 统一工具与部署 | 根目录 | npm workspaces、Dockerfile、Compose、`start.sh`。 |
 
 后端完整接口清单与契约单独维护于[《后端统一接口文档》](backend-api.md)。
@@ -24,10 +25,10 @@
 ## 3. 目录与工作区
 
 ```text
-apps/pasture-3d/       # Three.js/Vite
-apps/pasture-web/      # Vue/Vite
-services/api/          # Express + SQLite + 管理后台
-  public/              # 原管理后台
+apps/pasture-web/      # H5 / uni-app + Vue/Vite
+apps/pasture-admin/    # 管理后台 / Vite
+apps/pasture-3d/       # Web 大屏 / Three.js/Vite
+services/api/          # Express + SQLite
   src/                 # Express app、API routers、store、db
   test/                # store 与 HTTP/API 测试
   data/                # 种子 JSON；运行时 SQLite 文件不纳入版本控制
@@ -49,7 +50,7 @@ package-lock.json      # 唯一 npm 锁文件
 - `/3d/`：三维主页面；`/3d/legacy.html`：原 legacy 页面。
 - `/app/`：Vue 构建产物。
 
-Express 是唯一 HTTP 服务进程，同时托管 API 与前端构建产物，不新增反向代理或业务服务。两个 Vite 工程分别使用 `/3d/`、`/app/` 资源 base 路径。
+Express 是唯一 HTTP 服务进程，同时托管 API 与三个前端构建产物，不新增反向代理或业务服务。三个前端分别使用 `/app/`、`/admin/`、`/3d/` 资源 base 路径，可独立开发和构建。
 
 ## 5. 数据与兼容边界
 
@@ -64,8 +65,9 @@ Express 是唯一 HTTP 服务进程，同时托管 API 与前端构建产物，�
 | 命令 | 用途 |
 | --- | --- |
 | `npm run dev:api` | Express 开发服务器（watch） |
-| `npm run dev:app` | Vue Vite 开发服务器 |
-| `npm run dev:3d` | Three.js Vite 开发服务器 |
+| `npm run dev:h5` | H5 开发服务器（`dev:app` 为兼容别名） |
+| `npm run dev:admin` | 管理后台 Vite 开发服务器 |
+| `npm run dev:screen` | Web 大屏 Vite 开发服务器（`dev:3d` 为兼容别名） |
 | `npm run build` | 构建所有有 build 脚本的 workspace |
 | `npm test` | 执行 API store 与 HTTP 集成测试 |
 | `npm start` | 启动 API |
@@ -84,7 +86,7 @@ Express 是唯一 HTTP 服务进程，同时托管 API 与前端构建产物，�
 
 已完成工作区整理、Express 接入、静态路由配置、Dockerfile/Compose/启动脚本以及开发和 API 文档更新。已验证：
 
-- `npm run build`：两个前端构建通过。
+- `npm run build`：H5、管理后台、Web 大屏三个前端构建通过。
 - `npm test`：store 测试与 HTTP API 集成测试通过（2 项）。HTTP 测试使用临时 SQLite 文件。
 - `docker compose config --quiet` 与 `docker compose build`：通过。
 - 通过 `start.sh` 从仓库外目录启动成功；容器 healthcheck 状态为 healthy。
