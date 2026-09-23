@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import { Router, json } from 'express'
 import {
   createLivestock,
   getLivestock,
@@ -9,6 +9,7 @@ import {
 } from '../store.js'
 
 const router = Router()
+const parseJson = json({ limit: '1mb', strict: false })
 const success = (response, data, message = 'ok', statusCode = 200) => {
   response.status(statusCode).json({ code: 0, message, data })
 }
@@ -30,7 +31,7 @@ router.get('/livestock/mothers', async (request, response) => {
   success(response, await listMothers())
 })
 
-router.post('/livestock', async (request, response) => {
+router.post('/livestock', parseJson, async (request, response) => {
   const record = await createLivestock(request.body || {})
   success(response, record, '牲畜档案已创建', 201)
 })
@@ -42,7 +43,7 @@ router.get('/livestock/:id', async (request, response) => {
 const update = async (request, response) => {
   success(response, await updateLivestock(request.params.id, request.body || {}), '牲畜档案已更新')
 }
-router.patch('/livestock/:id', update)
-router.put('/livestock/:id', update)
+router.patch('/livestock/:id', parseJson, update)
+router.put('/livestock/:id', parseJson, update)
 
 export default router

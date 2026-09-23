@@ -32,7 +32,6 @@ app.use((request, response, next) => {
   next()
 })
 
-app.use('/api', express.json({ limit: '1mb', strict: false }))
 app.use('/api', healthRoutes)
 app.use('/api', livestockRoutes)
 app.use('/api', todoRoutes)
