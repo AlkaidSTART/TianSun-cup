@@ -1,0 +1,27 @@
+{
+  "name": "牧场智控",
+  "appid": "__UNI__SMARTPASTURE",
+  "description": "阿坝高原智慧放牧示范应用",
+  "versionName": "1.0.0",
+  "versionCode": "100",
+  "transformPx": false,
+  "uniStatistics": {
+    "enable": false
+  },
+  "h5": {
+    "title": "牧场智控",
+    "router": {
+      "mode": "hash"
+    }
+  },
+  "mp-weixin": {
+    "appid": "",
+    "setting": {
+      "urlCheck": false,
+      "es6": true,
+      "minified": true
+    },
+    "usingComponents": true
+  },
+  "vueVersion": "3"
+}
