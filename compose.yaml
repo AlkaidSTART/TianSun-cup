@@ -3,7 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args: {}
+      args:
+        VITE_TIANDITU_TOKEN: ${VITE_TIANDITU_TOKEN:-}
     image: tiansun-cup:local
     restart: unless-stopped
     environment:

@@ -1,5 +1,7 @@
 FROM node:22-bookworm-slim AS build
 WORKDIR /repo
+ARG VITE_TIANDITU_TOKEN
+ENV VITE_TIANDITU_TOKEN=${VITE_TIANDITU_TOKEN}
 COPY . .
 RUN npm ci
 RUN npm run build
