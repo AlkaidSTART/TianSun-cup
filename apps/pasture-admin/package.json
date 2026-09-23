@@ -1,0 +1,14 @@
+{
+  "name": "@tiansun/pasture-admin",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 5174 --strictPort",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4174 --strictPort"
+  },
+  "devDependencies": {
+    "vite": "^7.1.5"
+  }
+}
