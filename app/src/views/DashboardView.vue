@@ -115,7 +115,7 @@ function focusDot() {
     </header>
 
     <main class="content">
-      <div class="welcome"><div><div class="eyebrow">LIVE FIELD MONITOR</div><h1>今天的牧场，一眼掌握。</h1><p>四川 · 阿坝县 · 智慧放牧示范区　<span>刚刚更新</span></p></div><div class="date-chip">2026 / 09 / 07　☼ 14:32</div></div>
+      <div class="welcome"><div><div class="eyebrow">LIVE FIELD MONITOR</div><h1 class="page-title">今天的牧场，一眼掌握。</h1><p class="page-description">四川 · 阿坝县 · 智慧放牧示范区　<span>刚刚更新</span></p></div><div class="date-chip">2026 / 09 / 07　☼ 14:32</div></div>
       <section class="kpi-grid" aria-label="牧场关键指标"><article class="kpi"><div class="kpi-label">在线牲畜<span>●</span></div><div class="kpi-value">128<small> 头</small></div><div class="kpi-foot good">↗ 较昨日 +6</div></article><article class="kpi"><div class="kpi-label">健康状态<span>◉</span></div><div class="kpi-value">94.5<span>%</span></div><div class="kpi-foot good">正常 121 · 关注 5 · 异常 2</div></article><article class="kpi"><div class="kpi-label">草场压力指数<span>⌁</span></div><div class="kpi-value">0.75</div><div class="kpi-foot warn">东沟草场接近承载上限</div></article><article class="kpi"><div class="kpi-label">今日告警<span>!</span></div><div class="kpi-value">03</div><div class="kpi-foot bad">2 条待处理 · 1 台离线</div></article></section>
 
       <div class="workspace">

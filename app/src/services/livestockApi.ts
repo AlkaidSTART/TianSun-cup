@@ -1,3 +1,5 @@
+import { request } from './http'
+
 export type LivestockStatus = 'normal' | 'attention' | 'abnormal' | 'offline'
 export type LivestockSourceType = 'purchased' | 'born'
 export type LivestockSex = 'female' | 'male'
@@ -68,50 +70,13 @@ export interface LivestockStats {
   male: number
 }
 
-interface ApiEnvelope<T> {
-  code: number
-  message: string
-  data: T
-  details?: Record<string, string>
-}
-
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/+$/, '')
-
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  let response: Response
-  try {
-    response = await fetch(`${apiBaseUrl}${path}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...(options.headers || {}),
-      },
-      ...options,
-    })
-  } catch {
-    throw new Error('无法连接后台接口，请先启动 text_backend 服务')
-  }
-
-  let payload: ApiEnvelope<T>
-  try {
-    payload = await response.json() as ApiEnvelope<T>
-  } catch {
-    throw new Error(`后台返回异常（HTTP ${response.status}）`)
-  }
-
-  if (!response.ok || payload.code !== 0) {
-    const details = payload.details ? `：${Object.values(payload.details).join('，')}` : ''
-    throw new Error(`${payload.message || '请求失败'}${details}`)
-  }
-  return payload.data
-}
-
 export const livestockApi = {
   list(filters: { q?: string; status?: LivestockStatus | ''; sourceType?: LivestockSourceType | '' } = {}) {
-    const params = new URLSearchParams()
-    if (filters.q) params.set('q', filters.q)
-    if (filters.status) params.set('status', filters.status)
-    if (filters.sourceType) params.set('sourceType', filters.sourceType)
-    const query = params.toString()
+    const params: string[] = []
+    if (filters.q) params.push(`q=${encodeURIComponent(filters.q)}`)
+    if (filters.status) params.push(`status=${encodeURIComponent(filters.status)}`)
+    if (filters.sourceType) params.push(`sourceType=${encodeURIComponent(filters.sourceType)}`)
+    const query = params.join('&')
     return request<LivestockRecord[]>(`/livestock${query ? `?${query}` : ''}`)
   },
 
@@ -126,7 +91,7 @@ export const livestockApi = {
   create(draft: LivestockDraft) {
     return request<LivestockRecord>('/livestock', {
       method: 'POST',
-      body: JSON.stringify(draft),
+      data: { ...draft },
     })
   },
 }
