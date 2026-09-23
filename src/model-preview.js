@@ -5,7 +5,7 @@ const MODEL_PATHS = {
   '牛': '/models/cow.glb'
 };
 
-const ROTATION_SPEED = (2 * Math.PI) / (20 * 60);
+const ROTATION_SPEED = (2 * Math.PI) / (25 * 60);
 
 const container = document.querySelector('#model-preview');
 let scene, camera, renderer, loader;
@@ -122,7 +122,7 @@ function fitModelToView(object) {
   const center = box.getCenter(new THREE.Vector3());
 
   const maxDim = Math.max(size.x, size.y, size.z);
-  const scale = maxDim > 0 ? 3.9 / maxDim : 1;
+  const scale = maxDim > 0 ? 5.0 / maxDim : 1;
   object.scale.setScalar(scale);
 
   box.setFromObject(object);
@@ -130,8 +130,19 @@ function fitModelToView(object) {
   object.position.sub(center);
   object.position.y += (size.y * scale) / 2;
 
-  camera.position.set(0, size.y * scale * 0.6, Math.max(size.x, size.z) * scale * 2.2);
-  camera.lookAt(0, size.y * scale * 0.4, 0);
+  const scaledSize = new THREE.Vector3(size.x * scale, size.y * scale, size.z * scale);
+  const scaledMaxDim = Math.max(scaledSize.x, scaledSize.y, scaledSize.z);
+  
+  camera.position.set(0, scaledSize.y * 0.5, scaledMaxDim * 2.5);
+  camera.lookAt(0, scaledSize.y * 0.4, 0);
+
+  console.log('[model-preview] 模型缩放:', {
+    原始尺寸: { x: size.x.toFixed(2), y: size.y.toFixed(2), z: size.z.toFixed(2) },
+    缩放系数: scale.toFixed(3),
+    缩放后尺寸: { x: scaledSize.x.toFixed(2), y: scaledSize.y.toFixed(2), z: scaledSize.z.toFixed(2) },
+    相机位置: { x: camera.position.x.toFixed(2), y: camera.position.y.toFixed(2), z: camera.position.z.toFixed(2) },
+    相机距离: camera.position.distanceTo(new THREE.Vector3(0, scaledSize.y * 0.4, 0)).toFixed(2)
+  });
 }
 
 function loadModel(type) {
