@@ -8,7 +8,7 @@ const RANDOM_SEED = 2026091701;
 const OFFLINE_COUNT = 4;
 const VALID_STATUSES = new Set(['normal', 'attention', 'abnormal', 'offline']);
 // Reduce the previous marker size by 20%.
-const BASE_SPRITE_SIZE = 149.76;
+export const BASE_SPRITE_SIZE = 149.76;
 const ABNORMAL_SPRITE_SIZE = 172.8;
 const SELECTED_SPRITE_SIZE = 172.8;
 const REFERENCE_CAMERA_DISTANCE = 16000;
