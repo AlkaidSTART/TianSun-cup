@@ -1,17 +1,18 @@
 import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const MODEL_PATHS = {
   '牛': '/models/cow.glb'
 };
 
+const ROTATION_SPEED = 0.003;
+
 const container = document.querySelector('#model-preview');
-let scene, camera, renderer, controls, loader;
+let scene, camera, renderer, loader;
 let currentModel = null;
 let isVisible = false;
 let resizeObserver = null;
-let renderScheduled = false;
+let animationId = null;
 
 function init() {
   if (scene) return;
@@ -35,30 +36,9 @@ function init() {
   canvas.style.position = 'absolute';
   canvas.style.top = '0';
   canvas.style.left = '0';
-  canvas.style.cursor = 'grab';
+  canvas.style.pointerEvents = 'none';
   container.style.position = 'relative';
   container.appendChild(canvas);
-
-  controls = new OrbitControls(camera, canvas);
-  controls.enableDamping = true;
-  controls.dampingFactor = 0.15;
-  controls.enableZoom = true;
-  controls.enablePan = false;
-  controls.minDistance = 1.5;
-  controls.maxDistance = 10;
-  controls.maxPolarAngle = Math.PI * 0.85;
-  controls.target.set(0, 0.5, 0);
-
-  controls.addEventListener('start', () => {
-    canvas.style.cursor = 'grabbing';
-    scheduleRender();
-  });
-  controls.addEventListener('change', () => {
-    scheduleRender();
-  });
-  controls.addEventListener('end', () => {
-    canvas.style.cursor = 'grab';
-  });
 
   const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
   scene.add(ambientLight);
@@ -87,18 +67,18 @@ function handleResize() {
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
   renderer.setSize(width, height);
-  scheduleRender();
 }
 
-function scheduleRender() {
-  if (!isVisible || renderScheduled) return;
-  renderScheduled = true;
-  requestAnimationFrame(() => {
-    renderScheduled = false;
-    if (!isVisible) return;
-    controls.update();
-    renderer.render(scene, camera);
-  });
+function animate() {
+  if (!isVisible) {
+    animationId = null;
+    return;
+  }
+  animationId = requestAnimationFrame(animate);
+  if (currentModel) {
+    currentModel.rotation.y += ROTATION_SPEED;
+  }
+  renderer.render(scene, camera);
 }
 
 function clearModel() {
@@ -151,9 +131,7 @@ function fitModelToView(object) {
   object.position.y += (size.y * scale) / 2;
 
   camera.position.set(0, size.y * scale * 0.6, Math.max(size.x, size.z) * scale * 2.2);
-  controls.target.set(0, size.y * scale * 0.4, 0);
-  controls.update();
-  scheduleRender();
+  camera.lookAt(0, size.y * scale * 0.4, 0);
 }
 
 function loadModel(type) {
@@ -174,7 +152,6 @@ function loadModel(type) {
       scene.add(currentModel);
       fitModelToView(currentModel);
       hidePlaceholder();
-      scheduleRender();
     },
     undefined,
     (error) => {
@@ -228,12 +205,16 @@ export function showModelPreview(animalType) {
   requestAnimationFrame(() => {
     handleResize();
     loadModel(animalType);
+    if (!animationId) animate();
   });
 }
 
 export function hideModelPreview() {
   isVisible = false;
-  renderScheduled = false;
+  if (animationId) {
+    cancelAnimationFrame(animationId);
+    animationId = null;
+  }
   clearModel();
 }
 
@@ -249,5 +230,4 @@ export function disposeModelPreview() {
   }
   scene = null;
   camera = null;
-  controls = null;
 }
