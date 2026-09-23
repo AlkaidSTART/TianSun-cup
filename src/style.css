@@ -113,3 +113,18 @@ button, select { font: inherit; }
 .service-dot { width: 6px; height: 6px; border-radius: 50%; background: #efc75e; box-shadow: 0 0 8px currentColor; }
 .service-dot[data-state="ready"] { color: #3cda99; background: currentColor; }
 .service-dot[data-state="error"] { color: #ff5c5c; background: currentColor; }
+
+.prohibited-modal { position: fixed; z-index: 30; inset: 0; display: grid; place-items: center; animation: modal-fade-in .25s ease both; }
+.prohibited-modal[hidden] { display: none; }
+.prohibited-modal-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.55); backdrop-filter: blur(4px); }
+.prohibited-modal-card { position: relative; width: 380px; max-width: 90vw; padding: 28px 28px 22px; border: 1px solid rgb(224 68 67 / 40%); border-radius: 14px; background: linear-gradient(165deg, rgb(32 14 18 / 96%), rgb(18 8 12 / 98%)); box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5), 0 0 40px rgb(224 68 67 / 12%); text-align: center; animation: modal-card-in .3s ease both; }
+.prohibited-modal-icon { font-size: 36px; margin-bottom: 10px; }
+.prohibited-modal-card h2 { margin: 0 0 10px; color: #ff6961; font-size: 18px; font-weight: 700; letter-spacing: .04em; }
+.prohibited-modal-card p { margin: 0 0 22px; color: #c9b5b5; font-size: 13px; line-height: 1.6; }
+.prohibited-modal-actions { display: flex; gap: 12px; justify-content: center; }
+.prohibited-modal-actions button { padding: 9px 22px; border-radius: 7px; border: 1px solid rgb(224 68 67 / 35%); color: #e8c4c4; background: rgb(224 68 67 / 10%); cursor: pointer; font: 600 13px Inter, "Microsoft YaHei", system-ui, sans-serif; transition: background .15s ease, border-color .15s ease; }
+.prohibited-modal-actions button:hover { background: rgb(224 68 67 / 20%); border-color: rgb(224 68 67 / 55%); }
+.prohibited-modal-actions button.primary { color: #fff; background: rgb(224 68 67 / 75%); border-color: rgb(224 68 67 / 60%); }
+.prohibited-modal-actions button.primary:hover { background: rgb(224 68 67 / 90%); }
+@keyframes modal-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modal-card-in { from { opacity: 0; transform: scale(0.92) translateY(12px); } to { opacity: 1; transform: none; } }
