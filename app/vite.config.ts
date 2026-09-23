@@ -1,12 +1,20 @@
+import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
-import vue from '@vitejs/plugin-vue'
+import uniModule from '@dcloudio/vite-plugin-uni'
+
+type UniPluginFactory = typeof import('@dcloudio/vite-plugin-uni')['default']
+const uni = ((uniModule as unknown as { default?: UniPluginFactory }).default || uniModule) as UniPluginFactory
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [uni()],
+  resolve: {
+    alias: {
+      'lucide-vue-next': fileURLToPath(new URL('./src/shims/lucide-vue-next.ts', import.meta.url)),
+    },
+  },
   server: {
     host: '0.0.0.0',
     port: 5173,
-    // 端口被占用时直接报错退出，避免像之前那样静默复用/串到别的服务上
     strictPort: true,
     proxy: {
       '/api': {

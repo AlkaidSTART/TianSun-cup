@@ -107,7 +107,7 @@ button:focus-visible {
   color: #86958b;
   font-size: 8px;
 }
-.brand-lockup h1 {
+.brand-lockup .page-title {
   margin: 3px 0 0;
   color: var(--ink);
   font-size: 18px;
@@ -168,7 +168,7 @@ button:focus-visible {
   line-height: 1.25;
   font-weight: 700;
 }
-.location-copy p {
+.location-copy .location-description {
   margin: 4px 0 0;
   color: #96a29c;
   font-size: 11px;
@@ -625,7 +625,7 @@ button:focus-visible {
 }
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 7px;
 }
 .summary-card {

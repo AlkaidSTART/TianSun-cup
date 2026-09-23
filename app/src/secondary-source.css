@@ -15,12 +15,12 @@
   gap: 18px;
   margin-bottom: 20px;
 }
-.page-head h1 {
+.page-head .page-title {
   margin: 8px 0 5px;
   font: 600 32px/1.1 var(--font-display);
   letter-spacing: -0.03em;
 }
-.page-head p {
+.page-head .page-description {
   margin: 0;
   color: var(--muted);
   font-size: 14px;
@@ -374,6 +374,18 @@ a.list-row:hover {
   color: var(--fg);
   background: var(--bg);
   font: 13px var(--font-body);
+}
+.todo-field .app-picker-control {
+  min-height: 39px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 11px;
+  color: var(--fg);
+  background: #fff;
+  font-size: 13px;
+}
+.todo-field .app-picker-control.placeholder {
+  color: var(--muted);
 }
 .todo-field textarea {
   resize: vertical;
@@ -746,7 +758,7 @@ a.list-row:hover {
     flex-direction: column;
     gap: 10px;
   }
-  .page-head h1 {
+  .page-head .page-title {
     font-size: 30px;
   }
   .grid-3,
