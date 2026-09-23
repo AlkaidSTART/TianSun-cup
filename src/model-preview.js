@@ -36,6 +36,7 @@ function init() {
   canvas.style.top = '0';
   canvas.style.left = '0';
   container.style.position = 'relative';
+  container.appendChild(canvas);
 
   controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
@@ -189,9 +190,11 @@ export function showModelPreview(animalType) {
   init();
   isVisible = true;
   container.hidden = false;
-  handleResize();
-  loadModel(animalType);
-  if (!animationId) animate();
+  requestAnimationFrame(() => {
+    handleResize();
+    loadModel(animalType);
+    if (!animationId) animate();
+  });
 }
 
 export function hideModelPreview() {
