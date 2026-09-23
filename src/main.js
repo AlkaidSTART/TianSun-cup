@@ -44,6 +44,7 @@ import {
 } from './livestock-day3-overflow.js';
 import { createOverflowMarkerLayer } from './overflow-marker.js';
 import { createMapSources } from './map-sources.js';
+import { showModelPreview, hideModelPreview } from './model-preview.js';
 import './style.css';
 
 const token = import.meta.env.VITE_TIANDITU_TOKEN?.trim();
@@ -57,7 +58,7 @@ const detailPanel = document.querySelector('#detail-panel');
 const detailKicker = document.querySelector('#detail-kicker');
 const detailTitle = document.querySelector('#detail-title');
 const detailContent = document.querySelector('#detail-content');
-const modelPreview = document.querySelector('#model-preview');
+const modelPreviewSection = document.querySelector('#model-preview');
 const statusFilter = document.querySelector('#status-filter');
 const ownerFilter = document.querySelector('#owner-filter');
 const visibleCount = document.querySelector('#visible-count');
@@ -986,10 +987,11 @@ function formatOfflineDuration(seconds) {
 }
 
 function openDetails(object) {
+  hideModelPreview();
   if (object.userData.kind === 'animal' && hoveredArea) setHoveredArea(null);
   if (selectedObject?.userData.kind === 'animal') livestockSpriteSystem.setSelected(selectedObject, false);
   selectedObject = object;
-  modelPreview.hidden = object.userData.kind !== 'animal';
+  modelPreviewSection.hidden = object.userData.kind !== 'animal';
   detailPanel.dataset.kind = object.userData.kind;
   if (object.userData.kind === 'animal') {
     const animal = object.userData.animal;
@@ -1031,6 +1033,7 @@ function openDetails(object) {
         ['数据更新时间', formatDateTime(animal.telemetry.recordedAt)]
       ])
     ].join('');
+    showModelPreview(animal.profile.type);
   } else if (object.userData.kind === 'area') {
     const area = object.userData.area;
     const metrics = getAreaMetrics(area, livestock);
@@ -1052,7 +1055,7 @@ function openDetails(object) {
 function closeDetails() {
   if (selectedObject?.userData.kind === 'animal') livestockSpriteSystem.setSelected(selectedObject, false);
   selectedObject = null;
-  modelPreview.hidden = true;
+  hideModelPreview();
   delete detailPanel.dataset.kind;
   detailPanel.hidden = true;
   // 详情面板是从禁牧区弹窗的「查看详情」打开的 → 关闭后恢复时间轴。

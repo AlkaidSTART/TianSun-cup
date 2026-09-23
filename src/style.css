@@ -75,6 +75,7 @@ button, select { font: inherit; }
 .model-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; color: #a9d4c5; font-size: 12px; letter-spacing: .08em; }
 .model-placeholder small { color: #638a80; font-size: 10px; letter-spacing: 0; }
 .model-placeholder-icon { display: grid; width: 48px; height: 48px; place-items: center; border: 1px solid rgb(98 214 176 / 55%); border-radius: 14px; color: #64ddb2; background: rgb(72 204 157 / 12%); box-shadow: 0 0 28px rgb(67 215 168 / 16%); font-size: 28px; }
+.model-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #a9d4c5; font-size: 12px; letter-spacing: .08em; pointer-events: none; }
 .detail-scroll { flex: 1 1 60%; min-height: 0; overflow-y: auto; padding-right: 3px; scrollbar-width: thin; scrollbar-color: rgb(88 176 150 / 55%) transparent; }
 .detail-scroll::-webkit-scrollbar { width: 5px; }
 .detail-scroll::-webkit-scrollbar-thumb { border-radius: 3px; background: rgb(88 176 150 / 55%); }
