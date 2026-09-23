@@ -70,8 +70,9 @@ Express 是唯一 HTTP 服务进程，同时托管 API 与前端构建产物，�
 | `npm test` | 执行 API store 与 HTTP 集成测试 |
 | `npm start` | 启动 API |
 | `./start.sh` | 构建并后台启动 Compose 服务 |
+| `.\start.ps1` | Windows PowerShell 构建并后台启动 Compose 服务 |
 
-`start.sh` 支持透传 `down`、`logs` 等 Compose 命令，不会删除卷或重置数据库。默认主机端口为 `3000`，可通过根 `.env` 的 `PORT` 调整。地图 token 可在构建时通过 `VITE_TIANDITU_TOKEN` 传入；该前端配置会进入客户端构建产物，应按公开客户端配置管理，不放置服务端密钥。
+`start.sh` 和 `start.ps1` 均支持透传 `down`、`logs` 等 Compose 命令，不会删除卷或重置数据库。默认主机端口为 `3000`，可通过根 `.env` 的 `PORT` 调整。地图 token 可在构建时通过 `VITE_TIANDITU_TOKEN` 传入；该前端配置会进入客户端构建产物，应按公开客户端配置管理，不放置服务端密钥。
 
 ## 7. 架构决策
 

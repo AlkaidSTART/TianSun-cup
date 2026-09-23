@@ -71,6 +71,18 @@ H5 开发服务器将 `/api` 代理到 `http://127.0.0.1:3000`，可通过 `API_
 ./start.sh
 ```
 
+Windows PowerShell 使用等价脚本：
+
+```powershell
+.\start.ps1
+```
+
+如果本机执行策略阻止脚本运行，可执行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\start.ps1
+```
+
 启动成功后，各入口为：
 
 | 内容 | 地址路径 |
