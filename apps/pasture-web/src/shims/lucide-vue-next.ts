@@ -1,5 +1,5 @@
 import { defineComponent, h } from 'vue'
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import UniIcons from '../components/uni-icons/uni-icons.vue'
 
 function createIcon(name: string, type: string) {
   return defineComponent({

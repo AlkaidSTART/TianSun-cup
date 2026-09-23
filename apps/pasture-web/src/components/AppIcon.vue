@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import UniIcons from './uni-icons/uni-icons.vue'
 
 const props = withDefaults(defineProps<{
   name: string
