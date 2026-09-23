@@ -3,7 +3,7 @@
 > 日期：2026-09-23
 > 说明：HTTP 层现由 `services/api` 中的 Express 提供；此文只描述既有业务 API，不包含页面中的演示数据或新增能力。
 ## 1. 范围与兼容原则
-统一后端由 Express 提供 HTTP 服务，但此文列出的业务接口当前由 `text_backend/server.js` 的原生 Node HTTP 服务提供。迁移框架时，路由、数据字段、校验、状态码、消息与错误响应应以现有实现为准。
+统一后端由 `services/api` 中的 Express 提供 HTTP 服务。路由、数据字段、校验、状态码、消息与错误响应以迁移前的实现为兼容基线。
 覆盖范围仅包括当前已有的：健康检查、选项元数据、牲畜档案与待办事项。三维展示及 Vue 界面中的本地演示数据不因此变为后端 API，也不在此增加接口。
 - 基础路径：`/api`
 - 数据格式：JSON（UTF-8）
@@ -60,7 +60,7 @@
 | 404 | 接口不存在、牲畜/待办档案不存在、页面不存在 |
 | 413 | 请求体超过 1MB 限制 |
 | 500 | 未预期的服务器错误，响应消息为“服务器内部错误”，服务端记录错误日志 |
-未知 `/api` 路径返回 404，消息为“接口不存在”。Express 迁移中应确保其 JSON 404/error middleware 不把 API 错误变成 HTML 错误页。
+未知 `/api` 路径返回 JSON 404，消息为“接口不存在”；错误 middleware 不将 API 错误转换为 HTML 错误页。JSON body parser 仅用于已有写入路由，因此未知 API 路径不会因无效请求体抢先返回解析错误。
 ## 4. 健康检查与元数据
 ### `GET /api/health`
 返回服务状态、服务名、存储类型、数据库文件名及服务端时间：
@@ -209,8 +209,8 @@
 { "id": "12" }
 ```
 不存在或无效 ID 时返回 `404`、“未找到该待办事项”。
-## 7. Express 统一实现映射
-以下是目标实现组织建议，不增加 API：
+## 7. Express 服务实现映射
+当前代码按以下职责组织，不增加 API：
 ```text
 services/api/
 ├── src/
@@ -219,13 +219,11 @@ services/api/
 │   │   ├── health.js          # /api/health、/api/meta/options
 │   │   ├── livestock.js       # /api/livestock/**
 │   │   └── todos.js           # /api/todos/**
-│   ├── middleware/
-│   │   └── error-handler.js   # ApiError、JSON 404、统一错误响应
 │   ├── store.js               # 现有业务/SQLite 操作，原则上不改业务
 │   └── db.js                  # 现有 SQLite 初始化
 └── server.js                  # 监听 PORT/HOST
 ```
-模块名称是建议，不是必须的实现约束。关键是单一 Express app 统一挂载全部现有 API，并在静态资源 fallback 前先处理 `/api`，以确保未知 API 返回 JSON 404，而不是 HTML。
+Express app 在挂载静态资源 fallback 前挂载现有 API 路由；统一错误处理输出 JSON envelope。HTTP 启动入口负责监听 `HOST`/`PORT` 并在进程退出时关闭 SQLite。
 ## 8. API 兼容验收清单
 - [ ] 路由清单中的方法、路径与查询参数均可用，未知路由为 JSON 404。
 - [ ] 成功 envelope、中文消息、HTTP 状态码和空值语义与迁移前一致。
