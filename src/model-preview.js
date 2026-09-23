@@ -5,7 +5,7 @@ const MODEL_PATHS = {
   '牛': '/models/cow.glb'
 };
 
-const ROTATION_SPEED = 0.003;
+const ROTATION_SPEED = (2 * Math.PI) / (15 * 60);
 
 const container = document.querySelector('#model-preview');
 let scene, camera, renderer, loader;
@@ -122,7 +122,7 @@ function fitModelToView(object) {
   const center = box.getCenter(new THREE.Vector3());
 
   const maxDim = Math.max(size.x, size.y, size.z);
-  const scale = maxDim > 0 ? 2.5 / maxDim : 1;
+  const scale = maxDim > 0 ? 3.0 / maxDim : 1;
   object.scale.setScalar(scale);
 
   box.setFromObject(object);
