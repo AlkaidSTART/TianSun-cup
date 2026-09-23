@@ -9,9 +9,9 @@ const MODEL_PATHS = {
 const container = document.querySelector('#model-preview');
 let scene, camera, renderer, controls, loader;
 let currentModel = null;
-let animationId = null;
 let isVisible = false;
 let resizeObserver = null;
+let renderScheduled = false;
 
 function init() {
   if (scene) return;
@@ -26,7 +26,7 @@ function init() {
   renderer.setClearColor(0x000000, 0);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.2;
+  renderer.toneMappingExposure = 0.8;
 
   const canvas = renderer.domElement;
   canvas.style.width = '100%';
@@ -35,12 +35,13 @@ function init() {
   canvas.style.position = 'absolute';
   canvas.style.top = '0';
   canvas.style.left = '0';
+  canvas.style.cursor = 'grab';
   container.style.position = 'relative';
   container.appendChild(canvas);
 
   controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
-  controls.dampingFactor = 0.12;
+  controls.dampingFactor = 0.15;
   controls.enableZoom = true;
   controls.enablePan = false;
   controls.minDistance = 1.5;
@@ -48,14 +49,25 @@ function init() {
   controls.maxPolarAngle = Math.PI * 0.85;
   controls.target.set(0, 0.5, 0);
 
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+  controls.addEventListener('start', () => {
+    canvas.style.cursor = 'grabbing';
+    scheduleRender();
+  });
+  controls.addEventListener('change', () => {
+    scheduleRender();
+  });
+  controls.addEventListener('end', () => {
+    canvas.style.cursor = 'grab';
+  });
+
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
   scene.add(ambientLight);
 
-  const dirLight = new THREE.DirectionalLight(0xffffff, 1.8);
+  const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
   dirLight.position.set(3, 5, 4);
   scene.add(dirLight);
 
-  const fillLight = new THREE.DirectionalLight(0x88ccaa, 0.5);
+  const fillLight = new THREE.DirectionalLight(0xaaccaa, 0.4);
   fillLight.position.set(-3, 2, -2);
   scene.add(fillLight);
 
@@ -75,16 +87,18 @@ function handleResize() {
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
   renderer.setSize(width, height);
+  scheduleRender();
 }
 
-function animate() {
-  if (!isVisible) {
-    animationId = null;
-    return;
-  }
-  animationId = requestAnimationFrame(animate);
-  controls.update();
-  renderer.render(scene, camera);
+function scheduleRender() {
+  if (!isVisible || renderScheduled) return;
+  renderScheduled = true;
+  requestAnimationFrame(() => {
+    renderScheduled = false;
+    if (!isVisible) return;
+    controls.update();
+    renderer.render(scene, camera);
+  });
 }
 
 function clearModel() {
@@ -104,6 +118,24 @@ function clearModel() {
   }
 }
 
+function fixMaterials(object) {
+  object.traverse((child) => {
+    if (child.isMesh && child.material) {
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      materials.forEach((material) => {
+        if (material.emissive) {
+          material.emissive.setHex(0x000000);
+          material.emissiveIntensity = 0;
+        }
+        if (material.envMapIntensity !== undefined) {
+          material.envMapIntensity = 0.5;
+        }
+        material.needsUpdate = true;
+      });
+    }
+  });
+}
+
 function fitModelToView(object) {
   const box = new THREE.Box3().setFromObject(object);
   const size = box.getSize(new THREE.Vector3());
@@ -121,6 +153,7 @@ function fitModelToView(object) {
   camera.position.set(0, size.y * scale * 0.6, Math.max(size.x, size.z) * scale * 2.2);
   controls.target.set(0, size.y * scale * 0.4, 0);
   controls.update();
+  scheduleRender();
 }
 
 function loadModel(type) {
@@ -137,9 +170,11 @@ function loadModel(type) {
     path,
     (gltf) => {
       currentModel = gltf.scene;
+      fixMaterials(currentModel);
       scene.add(currentModel);
       fitModelToView(currentModel);
       hidePlaceholder();
+      scheduleRender();
     },
     undefined,
     (error) => {
@@ -193,16 +228,12 @@ export function showModelPreview(animalType) {
   requestAnimationFrame(() => {
     handleResize();
     loadModel(animalType);
-    if (!animationId) animate();
   });
 }
 
 export function hideModelPreview() {
   isVisible = false;
-  if (animationId) {
-    cancelAnimationFrame(animationId);
-    animationId = null;
-  }
+  renderScheduled = false;
   clearModel();
 }
 
