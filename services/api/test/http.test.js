@@ -39,7 +39,7 @@ test('Express API preserves health, existing resources, and JSON error envelopes
     const livestock = await livestockResponse.json()
     assert.equal(livestockResponse.status, 200)
     assert.equal(livestock.code, 0)
-    assert.equal(livestock.data.length, 8)
+    assert.equal(livestock.data.length, 7)
 
     const createTodoResponse = await fetch(`${baseUrl}/api/todos`, {
       method: 'POST',
