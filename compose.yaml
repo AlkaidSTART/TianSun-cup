@@ -1,0 +1,31 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args: {}
+    image: tiansun-cup:local
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      LIVESTOCK_DB_FILE: /app/services/api/data/tiansun.sqlite
+      LIVESTOCK_SEED_FILE: /app/seed/livestock.seed.json
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - livestock-data:/app/services/api/data
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  livestock-data:

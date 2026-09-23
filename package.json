@@ -1,18 +1,21 @@
 {
-  "name": "aba-ganzi-highland-pasture",
+  "name": "tiansun-cup-monorepo",
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "workspaces": [
+    "apps/*",
+    "services/*"
+  ],
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
-    "build": "vite build",
-    "preview": "vite preview --host 127.0.0.1"
+    "dev:3d": "npm run dev --workspace @tiansun/pasture-3d",
+    "dev:app": "npm run dev --workspace @tiansun/pasture-web",
+    "dev:api": "npm run dev --workspace @tiansun/api",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm test --workspace @tiansun/api",
+    "start": "npm start --workspace @tiansun/api"
   },
-  "dependencies": {
-    "three": "^0.183.1",
-    "three-tile": "^0.12.2"
-  },
-  "devDependencies": {
-    "vite": "^7.1.5"
+  "engines": {
+    "node": ">=22.5"
   }
 }

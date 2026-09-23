@@ -1,5 +1,5 @@
 {
-  "name": "tiansun-livestock-backend",
+  "name": "@tiansun/api",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,5 +11,8 @@
   },
   "engines": {
     "node": ">=22.5"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
   }
 }
