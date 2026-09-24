@@ -260,6 +260,9 @@ let terrainAvailable = true;
 let demLabel = 'DEM';
 let simulationHour = 10;
 let simulationHoursPerSecond = 1;
+const simulationPauseSources = new Set();
+const previewLocationState = new WeakMap();
+const METERS_PER_DEGREE_LATITUDE = 111_320;
 let simulationRunning = true;
 let lastAnimationTime = 0;
 
@@ -385,7 +388,6 @@ const prohibitedActualEntryHour = (() => {
   return prohibitedEntry.startHour;
 })();
 let prohibitedModalShownForEntry = null;
-let modalPausedSimulation = false;
 
 // 提醒消息的时间线：第 1 天掉线（0-24 时）+ 第 2 天越界（24-48 时）+ 第 3 天越界（48-72 时）
 // 合并成一条按绝对时刻排序的列表。每条消息都带模拟时间，渲染时按当前进度过滤，
@@ -914,6 +916,14 @@ function updateSimulationUi() {
     simulationTimeLabel.textContent = `${formatSimulationHour(hour)} · ${phaseLabelAtHour(hour)}`;
   }
   if (simulationToggle) simulationToggle.textContent = simulationRunning ? '暂停' : '继续';
+  if (simulationTime) simulationTime.disabled = !simulationRunning;
+}
+
+function setSimulationPauseSource(source, paused) {
+  if (paused) simulationPauseSources.add(source);
+  else simulationPauseSources.delete(source);
+  simulationRunning = simulationPauseSources.size === 0;
+  updateSimulationUi();
 }
 
 function setSimulationHour(value) {
@@ -986,6 +996,34 @@ function formatOfflineDuration(seconds) {
   return hours > 0 ? `${hours} 小时 ${minutes} 分钟` : `${minutes} 分钟`;
 }
 
+function getPreviewLocation(animal) {
+  let state = previewLocationState.get(animal);
+  if (!state) {
+    state = {
+      initialLongitude: animal.telemetry.location.longitude,
+      initialLatitude: animal.telemetry.location.latitude,
+      lastViewedHour: simulationHour,
+      totalHours: 0,
+      visitCount: 0
+    };
+    previewLocationState.set(animal, state);
+  }
+
+  const elapsedHours = Math.max(0, simulationHour - state.lastViewedHour);
+  state.totalHours += elapsedHours;
+  state.lastViewedHour = simulationHour;
+  state.visitCount += 1;
+
+  const distanceMeters = Math.min(360, 80 + state.totalHours * 24);
+  const angle = ((animal.id.length * 37 + state.visitCount * 71) % 360) * Math.PI / 180;
+  const northMeters = Math.sin(angle) * distanceMeters;
+  const eastMeters = Math.cos(angle) * distanceMeters;
+  const latitude = state.initialLatitude + northMeters / METERS_PER_DEGREE_LATITUDE;
+  const longitude = state.initialLongitude + eastMeters / (METERS_PER_DEGREE_LATITUDE * Math.cos(state.initialLatitude * Math.PI / 180));
+
+  return { longitude, latitude };
+}
+
 function openDetails(object) {
   hideModelPreview();
   if (object.userData.kind === 'animal' && hoveredArea) setHoveredArea(null);
@@ -1019,6 +1057,7 @@ function openDetails(object) {
         metricRow('心率', metrics.heartRate),
         metricRow('反刍次数', metrics.rumination)
       ], { collapsible: true, open: false })];
+    const previewLocation = getPreviewLocation(animal);
     detailContent.innerHTML = [
       detailSection('基础信息', [
         ['编号', animal.profile.livestockId],
@@ -1029,7 +1068,7 @@ function openDetails(object) {
       ]),
       ...statusSections,
       detailSection('位置信息', [
-        ['经纬度坐标', `${animal.telemetry.location.longitude.toFixed(5)}° E<br>${animal.telemetry.location.latitude.toFixed(5)}° N`],
+        ['经纬度坐标', `${previewLocation.longitude.toFixed(5)}° E<br>${previewLocation.latitude.toFixed(5)}° N`],
         ['数据更新时间', formatDateTime(animal.telemetry.recordedAt)]
       ])
     ].join('');
@@ -1050,6 +1089,7 @@ function openDetails(object) {
     detailContent.innerHTML = rows([['经度', `${object.userData.longitude.toFixed(3)}° E`], ['纬度', `${object.userData.latitude.toFixed(3)}° N`]]);
   }
   detailPanel.hidden = false;
+  setSimulationPauseSource('detail-panel', object.userData.kind === 'animal');
 }
 
 function closeDetails() {
@@ -1058,12 +1098,7 @@ function closeDetails() {
   hideModelPreview();
   delete detailPanel.dataset.kind;
   detailPanel.hidden = true;
-  // 详情面板是从禁牧区弹窗的「查看详情」打开的 → 关闭后恢复时间轴。
-  if (modalPausedSimulation) {
-    simulationRunning = true;
-    updateSimulationUi();
-    modalPausedSimulation = false;
-  }
+  setSimulationPauseSource('detail-panel', false);
 }
 
 function showSceneTooltip(text, event) {
@@ -1144,7 +1179,7 @@ function pick(event) {
     : [...animalSprites.filter((sprite) => sprite.visible), ...areaMeshes];
   const intersections = raycaster.intersectObjects(clickable, false);
   if (intersections.length) openDetails(intersections[0].object);
-  else if (!animalDetailsOpen) closeDetails();
+  else closeDetails();
 }
 
 renderer.domElement.addEventListener('pointerdown', (event) => pointerDown.set(event.clientX, event.clientY));
@@ -1159,13 +1194,21 @@ renderer.domElement.addEventListener('pointerup', (event) => {
 statusFilter.addEventListener('change', updateFilters);
 ownerFilter.addEventListener('change', updateFilters);
 document.querySelector('#close-detail').addEventListener('click', closeDetails);
-simulationTime?.addEventListener('input', (event) => setSimulationHour(event.target.value));
+simulationTime?.addEventListener('input', (event) => {
+  if (simulationRunning) setSimulationHour(event.target.value);
+});
 simulationSpeed?.addEventListener('change', (event) => {
   simulationHoursPerSecond = Number(event.target.value);
 });
 simulationToggle?.addEventListener('click', () => {
-  simulationRunning = !simulationRunning;
-  updateSimulationUi();
+  if (simulationPauseSources.has('manual')) {
+    setSimulationPauseSource('manual', false);
+  } else if (simulationRunning) {
+    setSimulationPauseSource('manual', true);
+  }
+});
+detailPanel.addEventListener('click', (event) => {
+  if (event.target === detailPanel) closeDetails();
 });
 ['pointerdown', 'pointerup', 'pointermove', 'wheel'].forEach((eventName) => {
   detailPanel.addEventListener(eventName, (event) => event.stopPropagation());
@@ -1193,17 +1236,16 @@ function connectMapEvents(tileMap) {
 function setupProhibitedModal() {
   if (!prohibitedModal) return;
   prohibitedModalDismiss?.addEventListener('click', hideProhibitedModal);
+  prohibitedModal.querySelector('.prohibited-modal-backdrop')?.addEventListener('click', hideProhibitedModal);
   prohibitedModalDetail?.addEventListener('click', () => {
-    // 只隐藏弹窗，不恢复时间轴——等详情面板关闭后再恢复。
-    if (prohibitedModal) prohibitedModal.hidden = true;
-    if (prohibitedEntry?.animal) {
+    if (prohibitedEntry?.animal?.sprite) {
       const sprite = prohibitedEntry.animal.sprite;
-      if (sprite) {
-        openDetails(sprite);
-        controls.target.copy(sprite.position);
-        camera.lookAt(sprite.position);
-      }
+      openDetails(sprite);
+      controls.target.copy(sprite.position);
+      camera.lookAt(sprite.position);
     }
+    prohibitedModal.hidden = true;
+    setSimulationPauseSource('prohibited-modal', false);
   });
 }
 
@@ -1214,22 +1256,13 @@ function showProhibitedModal(entry) {
     prohibitedModalBody.textContent = `${entry.ownerName} ${entry.animalId} 于${formatSimulationStamp(prohibitedActualEntryHour ?? entry.startHour)}进入东南禁牧区，已自动提醒牧民。`;
   }
   prohibitedModal.hidden = false;
-  // 自动暂停模拟时钟，关闭弹窗时再恢复。
-  modalPausedSimulation = simulationRunning;
-  if (simulationRunning) {
-    simulationRunning = false;
-    updateSimulationUi();
-  }
+  setSimulationPauseSource('prohibited-modal', true);
 }
 
 function hideProhibitedModal() {
   if (!prohibitedModal) return;
   prohibitedModal.hidden = true;
-  if (modalPausedSimulation) {
-    simulationRunning = true;
-    updateSimulationUi();
-  }
-  modalPausedSimulation = false;
+  setSimulationPauseSource('prohibited-modal', false);
 }
 
 // 每帧实时检测：光点经纬度是否落在禁牧区多边形内。
@@ -1322,7 +1355,7 @@ function animate(time) {
   controls.update();
   if (map) map.update(camera);
   overflowMarkerLayer?.update(simulationHour);
-  livestockSpriteSystem.update(time, camera);
+  livestockSpriteSystem.update(time, camera, !simulationRunning);
   renderer.render(scene, camera);
 }
 

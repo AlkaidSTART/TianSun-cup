@@ -2,10 +2,10 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const MODEL_PATHS = {
-  '牛': '/models/cow.glb'
+  '牛': `${import.meta.env.BASE_URL}models/yak.glb`
 };
 
-const ROTATION_SPEED = (2 * Math.PI) / (25 * 60);
+const ROTATION_SPEED = (2 * Math.PI) / 25_000;
 
 const container = document.querySelector('#model-preview');
 let scene, camera, renderer, loader;
@@ -13,6 +13,9 @@ let currentModel = null;
 let isVisible = false;
 let resizeObserver = null;
 let animationId = null;
+let lastFrameTime = null;
+let loadRequestId = 0;
+let openRequestId = 0;
 
 function init() {
   if (scene) return;
@@ -40,16 +43,12 @@ function init() {
   container.style.position = 'relative';
   container.appendChild(canvas);
 
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+  const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
   scene.add(ambientLight);
 
-  const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
   dirLight.position.set(3, 5, 4);
   scene.add(dirLight);
-
-  const fillLight = new THREE.DirectionalLight(0xaaccaa, 0.4);
-  fillLight.position.set(-3, 2, -2);
-  scene.add(fillLight);
 
   loader = new GLTFLoader();
 
@@ -69,33 +68,33 @@ function handleResize() {
   renderer.setSize(width, height);
 }
 
-function animate() {
+function animate(time) {
   if (!isVisible) {
     animationId = null;
+    lastFrameTime = null;
     return;
   }
   animationId = requestAnimationFrame(animate);
-  if (currentModel) {
-    currentModel.rotation.y += ROTATION_SPEED;
+  const frameTime = Number.isFinite(time) ? time : performance.now();
+  if (currentModel && Number.isFinite(lastFrameTime)) {
+    const delta = Math.min(Math.max(frameTime - lastFrameTime, 0), 100);
+    currentModel.rotation.y += ROTATION_SPEED * delta;
   }
+  lastFrameTime = frameTime;
   renderer.render(scene, camera);
 }
 
+function startAnimation() {
+  if (animationId !== null) return;
+  lastFrameTime = null;
+  animationId = requestAnimationFrame(animate);
+}
+
 function clearModel() {
-  if (currentModel) {
-    scene.remove(currentModel);
-    currentModel.traverse((child) => {
-      if (child.isMesh) {
-        child.geometry?.dispose();
-        if (Array.isArray(child.material)) {
-          child.material.forEach((m) => m.dispose());
-        } else {
-          child.material?.dispose();
-        }
-      }
-    });
-    currentModel = null;
-  }
+  if (!currentModel) return;
+  scene.remove(currentModel);
+  disposeObject(currentModel);
+  currentModel = null;
 }
 
 function fixMaterials(object) {
@@ -120,33 +119,44 @@ function fitModelToView(object) {
   const box = new THREE.Box3().setFromObject(object);
   const size = box.getSize(new THREE.Vector3());
   const center = box.getCenter(new THREE.Vector3());
-
   const maxDim = Math.max(size.x, size.y, size.z);
-  const scale = maxDim > 0 ? 5.0 / maxDim : 1;
-  object.scale.setScalar(scale);
+  const scale = maxDim > 0 ? 3 / maxDim : 1;
+  object.scale.multiplyScalar(scale);
+  object.position.sub(center.multiplyScalar(scale));
 
-  box.setFromObject(object);
-  box.getCenter(center);
-  object.position.sub(center);
-  object.position.y += (size.y * scale) / 2;
-
-  const scaledSize = new THREE.Vector3(size.x * scale, size.y * scale, size.z * scale);
+  const scaledBox = new THREE.Box3().setFromObject(object);
+  const scaledSize = scaledBox.getSize(new THREE.Vector3());
+  const scaledCenter = scaledBox.getCenter(new THREE.Vector3());
   const scaledMaxDim = Math.max(scaledSize.x, scaledSize.y, scaledSize.z);
-  
-  camera.position.set(0, scaledSize.y * 0.5, scaledMaxDim * 2.5);
-  camera.lookAt(0, scaledSize.y * 0.4, 0);
+  const horizontalRadius = Math.hypot(scaledSize.x, scaledSize.z) / 2;
+  const verticalFov = THREE.MathUtils.degToRad(camera.fov);
+  const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * camera.aspect);
+  const depthAllowance = horizontalRadius * 0.9;
+  const distance = Math.max(
+    scaledSize.y / (2 * Math.tan(verticalFov / 2) * 0.75),
+    horizontalRadius / (Math.tan(horizontalFov / 2) * 0.75)
+  ) + depthAllowance;
 
-  console.log('[model-preview] 模型缩放:', {
-    原始尺寸: { x: size.x.toFixed(2), y: size.y.toFixed(2), z: size.z.toFixed(2) },
-    缩放系数: scale.toFixed(3),
-    缩放后尺寸: { x: scaledSize.x.toFixed(2), y: scaledSize.y.toFixed(2), z: scaledSize.z.toFixed(2) },
-    相机位置: { x: camera.position.x.toFixed(2), y: camera.position.y.toFixed(2), z: camera.position.z.toFixed(2) },
-    相机距离: camera.position.distanceTo(new THREE.Vector3(0, scaledSize.y * 0.4, 0)).toFixed(2)
+  camera.position.copy(scaledCenter).add(new THREE.Vector3(0, 0, distance));
+  camera.lookAt(scaledCenter);
+  camera.near = Math.max(0.01, distance - scaledMaxDim * 2);
+  camera.far = distance + scaledMaxDim * 2;
+  camera.updateProjectionMatrix();
+
+  console.log('[model-preview] 模型加载成功:', {
+    路径: MODEL_PATHS['牛'],
+    scale: object.scale.toArray(),
+    模型尺寸: scaledSize.toArray(),
+    最大边长: scaledMaxDim,
+    相机位置: camera.position.toArray(),
+    相机距离: camera.position.distanceTo(scaledCenter),
+    自转周期秒: 25
   });
 }
 
 function loadModel(type) {
   const path = MODEL_PATHS[type];
+  const requestId = ++loadRequestId;
   if (!path) {
     showPlaceholder(`暂无${type}模型`);
     return;
@@ -158,18 +168,36 @@ function loadModel(type) {
   loader.load(
     path,
     (gltf) => {
-      currentModel = gltf.scene;
-      fixMaterials(currentModel);
+      if (!isVisible || requestId !== loadRequestId) {
+        disposeObject(gltf.scene);
+        return;
+      }
+      fixMaterials(gltf.scene);
+      currentModel = new THREE.Group();
+      currentModel.add(gltf.scene);
       scene.add(currentModel);
-      fitModelToView(currentModel);
+      fitModelToView(gltf.scene);
       hidePlaceholder();
     },
     undefined,
     (error) => {
+      if (!isVisible || requestId !== loadRequestId) return;
       console.error('[model-preview] 模型加载失败:', error);
       showPlaceholder('模型加载失败');
     }
   );
+}
+
+function disposeObject(object) {
+  object.traverse((child) => {
+    if (!child.isMesh) return;
+    child.geometry?.dispose();
+    if (Array.isArray(child.material)) {
+      child.material.forEach((material) => material.dispose());
+    } else {
+      child.material?.dispose();
+    }
+  });
 }
 
 function showLoading() {
@@ -211,18 +239,23 @@ function showPlaceholder(text) {
 
 export function showModelPreview(animalType) {
   init();
+  const requestId = ++openRequestId;
   isVisible = true;
   container.hidden = false;
   requestAnimationFrame(() => {
+    if (!isVisible || requestId !== openRequestId) return;
     handleResize();
     loadModel(animalType);
-    if (!animationId) animate();
+    startAnimation();
   });
 }
 
 export function hideModelPreview() {
   isVisible = false;
-  if (animationId) {
+  openRequestId += 1;
+  loadRequestId += 1;
+  lastFrameTime = null;
+  if (animationId !== null) {
     cancelAnimationFrame(animationId);
     animationId = null;
   }
