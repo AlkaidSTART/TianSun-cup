@@ -408,7 +408,8 @@ export function createLivestockSpriteSystem({ scene, sampleGround, groundOffset 
     sprite.scale.setScalar(getDisplayScale(sprite));
   }
 
-  function update(time, camera) {
+  function update(time, camera, paused = false) {
+    if (paused) return;
     const breathing = (Math.sin((time / 1400) * Math.PI * 2 - Math.PI / 2) + 1) / 2;
     materials.abnormal.opacity = THREE.MathUtils.lerp(0.4, 1, breathing);
 
