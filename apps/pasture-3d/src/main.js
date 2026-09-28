@@ -215,9 +215,61 @@ function layoutMessageFeed() {
 
 messageClear?.addEventListener('click', () => messageFeed.clear());
 
+// 昼夜循环：三组参数（白天/傍晚/夜晚）+ 六个关键帧。
+// 稳定期两端是同一组参数，过渡期两端不同，插值只在过渡期产生变化。
+// 8-15 白天稳定；15-17 白天→傍晚；17-19 傍晚稳定；19-22 傍晚→夜晚；22-4 夜晚稳定；4-8 夜晚→白天。
+const DAY_NIGHT_PARAMS = {
+  day: {
+    ambient: { color: 0xfff5e6, intensity: 1.0 },
+    sun: { color: 0xffffff, intensity: 1.0, position: [40000, 60000, 40000] },
+    sky: ['#87CEEB', '#B0E0E6'],  // 浅蓝渐变
+    fog: { color: 0xB0E0E6, density: 0.0000020 },
+    glowOpacity: { normal: 1.0, attention: 1.0, abnormal: 1.0 }
+  },
+  dusk: {
+    ambient: { color: 0xffb366, intensity: 0.6 },
+    sun: { color: 0xff6633, intensity: 0.7, position: [60000, 15000, 20000] },
+    sky: ['#FF8C42', '#FFB366'],
+    fog: { color: 0xFFB366, density: 0.0000028 },
+    glowOpacity: { normal: 1.0, attention: 1.0, abnormal: 1.0 }
+  },
+  night: {
+    ambient: { color: 0x8fb0d9, intensity: 0.2 },
+    sun: { color: 0x9db8e0, intensity: 0.1, position: [40000, 30000, 60000] },
+    sky: ['#04070f', '#16283f'],
+    fog: { color: 0x0a1424, density: 0.0000032 },
+    glowOpacity: { normal: 0.95, attention: 0.9, abnormal: 0.95 }
+  }
+};
+
+const DAY_NIGHT_KEYFRAMES = [
+  { hour: 4, ...DAY_NIGHT_PARAMS.night },
+  { hour: 8, ...DAY_NIGHT_PARAMS.day },
+  { hour: 15, ...DAY_NIGHT_PARAMS.day },
+  { hour: 17, ...DAY_NIGHT_PARAMS.dusk },
+  { hour: 19, ...DAY_NIGHT_PARAMS.dusk },
+  { hour: 22, ...DAY_NIGHT_PARAMS.night }
+];
+
+const DAY_NIGHT_FRAMES = DAY_NIGHT_KEYFRAMES.map((frame) => ({
+  ...frame,
+  ambientColor: new THREE.Color(frame.ambient.color),
+  sunColor: new THREE.Color(frame.sun.color),
+  sunPosition: new THREE.Vector3(...frame.sun.position),
+  skyColors: frame.sky.map((hex) => new THREE.Color(hex)),
+  fogColor: new THREE.Color(frame.fog.color)
+}));
+
+// 天空渐变复用同一张 CanvasTexture：插值时只重绘渐变并置 needsUpdate，不新建资源。
+const skyCanvas = document.createElement('canvas');
+skyCanvas.width = 8;
+skyCanvas.height = 256;
+const skyContext = skyCanvas.getContext('2d');
+
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x8ba3b1);
-scene.fog = new THREE.FogExp2(0x8ba3b1, 0.0000032);
+scene.background = new THREE.CanvasTexture(skyCanvas);
+scene.background.colorSpace = THREE.SRGBColorSpace;
+scene.fog = new THREE.FogExp2(0x0a1424, 0.0000032);
 
 const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 100, 1500000);
 camera.up.set(0, 1, 0);
@@ -229,9 +281,10 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 root.appendChild(renderer.domElement);
 
-scene.add(new THREE.AmbientLight(0xffffff, 1.8));
-const sun = new THREE.DirectionalLight(0xfff2d2, 2.8);
-sun.position.set(-60000, 120000, 80000);
+const ambientLight = new THREE.AmbientLight(0x8fb0d9, 0.2);
+scene.add(ambientLight);
+const sun = new THREE.DirectionalLight(0x9db8e0, 0.1);
+sun.position.set(40000, 30000, 60000);
 scene.add(sun);
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -247,6 +300,16 @@ const LIVESTOCK_MOTION_GROUND_OFFSET = 10;
 const areaMeshes = [];
 const areaLineMaterials = [];
 const siteObjects = [];
+const settlementOutlineObjects = [];
+// 夜间轮廓光材质：月光淡蓝，加色混合柔光，只在夜间显示。
+const settlementOutlineMaterial = new THREE.LineBasicMaterial({
+  color: 0xa9c8ff,
+  transparent: true,
+  opacity: 0.5,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+  toneMapped: false
+});
 const restZoneMeshes = [];
 const restZoneLineMaterials = [];
 const raycaster = new THREE.Raycaster();
@@ -592,6 +655,15 @@ function createSettlementModel(site, groundPoint) {
   group.traverse((child) => {
     if (child.isMesh) child.userData = group.userData;
   });
+  // 夜间轮廓光：沿构件几何边描一圈柔光，像被月光勾出轮廓。
+  group.traverse((child) => {
+    if (!child.isMesh || !child.geometry) return;
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(child.geometry, 30), settlementOutlineMaterial);
+    edges.renderOrder = 7;
+    edges.userData = group.userData;
+    child.add(edges);
+    settlementOutlineObjects.push(edges);
+  });
   siteObjects.push(group);
   scene.add(group);
 }
@@ -837,11 +909,79 @@ function applyOfflineState(hour) {
   if (stateChanged) updateFilters();
 }
 
+// 定居点轮廓光只在夜间（19:00-06:00）显示。
+function isNightHour(hour) {
+  const normalized = normalizeHour(hour);
+  return normalized >= 19 || normalized < 6;
+}
+
+function setSettlementOutlineVisible(visible) {
+  settlementOutlineObjects.forEach((object) => { object.visible = visible; });
+}
+
+// —— 昼夜插值（六关键帧 / 三组参数） ——
+// 8-15 白天稳定；15-17 白天→傍晚；17-19 傍晚稳定；19-22 傍晚→夜晚；22-次日4 夜晚稳定；4-8 夜晚→白天。
+// 每 12 帧更新一次；拖动时间轴跳变（>0.5 模拟小时）时立即更新。
+const DAY_NIGHT_UPDATE_FRAMES = 12;
+const dayNightSkyColorPair = [new THREE.Color(), new THREE.Color()];
+let dayNightFrameCounter = 0;
+let lastDayNightHour = null;
+
+function resolveDayNightSegment(hour) {
+  const normalized = normalizeHour(hour);
+  if (normalized >= 4 && normalized < 8) return { from: 0, to: 1, progress: (normalized - 4) / 4 };
+  if (normalized >= 8 && normalized < 15) return { from: 1, to: 2, progress: (normalized - 8) / 7 };
+  if (normalized >= 15 && normalized < 17) return { from: 2, to: 3, progress: (normalized - 15) / 2 };
+  if (normalized >= 17 && normalized < 19) return { from: 3, to: 4, progress: (normalized - 17) / 2 };
+  if (normalized >= 19 && normalized < 22) return { from: 4, to: 5, progress: (normalized - 19) / 3 };
+  const wrapped = normalized >= 22 ? normalized : normalized + 24;
+  return { from: 5, to: 0, progress: (wrapped - 22) / 6 };
+}
+
+function updateDayNight(hour) {
+  dayNightFrameCounter += 1;
+  const jumped = lastDayNightHour === null || Math.abs(hour - lastDayNightHour) > 0.5;
+  if (!jumped && dayNightFrameCounter < DAY_NIGHT_UPDATE_FRAMES) return;
+  dayNightFrameCounter = 0;
+  lastDayNightHour = hour;
+
+  const { from, to, progress } = resolveDayNightSegment(hour);
+  const start = DAY_NIGHT_FRAMES[from];
+  const end = DAY_NIGHT_FRAMES[to];
+  const t = THREE.MathUtils.clamp(progress, 0, 1);
+
+  ambientLight.color.lerpColors(start.ambientColor, end.ambientColor, t);
+  ambientLight.intensity = THREE.MathUtils.lerp(start.ambient.intensity, end.ambient.intensity, t);
+  sun.color.lerpColors(start.sunColor, end.sunColor, t);
+  sun.intensity = THREE.MathUtils.lerp(start.sun.intensity, end.sun.intensity, t);
+  sun.position.lerpVectors(start.sunPosition, end.sunPosition, t);
+
+  scene.fog.color.lerpColors(start.fogColor, end.fogColor, t);
+  scene.fog.density = THREE.MathUtils.lerp(start.fog.density, end.fog.density, t);
+
+  dayNightSkyColorPair[0].lerpColors(start.skyColors[0], end.skyColors[0], t);
+  dayNightSkyColorPair[1].lerpColors(start.skyColors[1], end.skyColors[1], t);
+  const gradient = skyContext.createLinearGradient(0, 0, 0, 256);
+  gradient.addColorStop(0, `#${dayNightSkyColorPair[0].getHexString()}`);
+  gradient.addColorStop(1, `#${dayNightSkyColorPair[1].getHexString()}`);
+  skyContext.fillStyle = gradient;
+  skyContext.fillRect(0, 0, 8, 256);
+  scene.background.needsUpdate = true;
+
+  livestockSpriteSystem.setGlowOpacity({
+    normal: THREE.MathUtils.lerp(start.glowOpacity.normal, end.glowOpacity.normal, t),
+    attention: THREE.MathUtils.lerp(start.glowOpacity.attention, end.glowOpacity.attention, t),
+    abnormal: THREE.MathUtils.lerp(start.glowOpacity.abnormal, end.glowOpacity.abnormal, t)
+  });
+}
+
 function applySimulationHour(hour) {
   applyOfflineState(hour);
   updateLivestockMotion(hour);
   syncMessageTimeline(hour);
   checkProhibitedModal(hour);
+  setSettlementOutlineVisible(isNightHour(hour));
+  updateDayNight(hour);
 }
 
 // 06:00-07:00 出牧 · 07:00-17:00 放牧 · 17:00-18:00 归牧 · 18:00-06:00 休息区休息

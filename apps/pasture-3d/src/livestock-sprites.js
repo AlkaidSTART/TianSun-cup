@@ -251,11 +251,34 @@ function createMarkerTexture({ outerGlowOpacity = 0.34, name = 'livestock-marker
   return texture;
 }
 
+// 夜间辉光贴图：白色核心 + 状态色柔边，配合加色混合让光点在暗场景中自发光。
+function createNightGlowTexture(cssColor) {
+  const value = parseInt(cssColor.replace('#', ''), 16);
+  const red = (value >> 16) & 255;
+  const green = (value >> 8) & 255;
+  const blue = value & 255;
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const context = canvas.getContext('2d');
+  const glow = context.createRadialGradient(64, 64, 0, 64, 64, 64);
+  glow.addColorStop(0, 'rgba(255,255,255,0.95)');
+  glow.addColorStop(0.28, `rgba(${red},${green},${blue},0.9)`);
+  glow.addColorStop(0.62, `rgba(${red},${green},${blue},0.35)`);
+  glow.addColorStop(1, `rgba(${red},${green},${blue},0)`);
+  context.fillStyle = glow;
+  context.fillRect(0, 0, 128, 128);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.name = `livestock-night-glow-${cssColor.replace('#', '')}`;
+  return texture;
+}
+
 function createStatusMaterials(markerTextures) {
   return Object.fromEntries(Object.entries(STATUS).map(([status, definition]) => {
     if (!VALID_STATUSES.has(status)) throw new Error(`[livestock-sprites] 非法状态配置：${status}`);
     const material = new THREE.SpriteMaterial({
-      map: status === 'offline' ? markerTextures.offline : markerTextures.default,
+      map: status === 'offline' ? markerTextures.offline : createNightGlowTexture(definition.cssColor),
       color: definition.color,
       transparent: true,
       opacity: 1,
@@ -296,6 +319,23 @@ export function createLivestockSpriteSystem({ scene, sampleGround, groundOffset 
     })
   };
   const materials = createStatusMaterials(markerTextures);
+  // 夜晚发光：正常/需关注/异常改用加色混合，让光点在暗场景中自发光；
+  // 掉线保持普通混合的微弱可见光，不参与发光。透明度由昼夜插值通过 setGlowOpacity 驱动。
+  const glowOpacity = { normal: 0.95, attention: 0.9, abnormal: 0.95 };
+  for (const [status, material] of Object.entries(materials)) {
+    if (status === 'offline') continue;
+    material.blending = THREE.AdditiveBlending;
+    material.opacity = glowOpacity[status];
+  }
+
+  function setGlowOpacity(next) {
+    if (!next) return;
+    for (const status of ['normal', 'attention', 'abnormal']) {
+      if (Number.isFinite(next[status])) glowOpacity[status] = THREE.MathUtils.clamp(next[status], 0, 1);
+    }
+    materials.normal.opacity = glowOpacity.normal;
+    materials.attention.opacity = glowOpacity.attention;
+  }
   const sprites = [];
   const spriteWorldPosition = new THREE.Vector3();
   let lastScaleUpdateTime = 0;
@@ -411,7 +451,7 @@ export function createLivestockSpriteSystem({ scene, sampleGround, groundOffset 
   function update(time, camera, paused = false) {
     if (paused) return;
     const breathing = (Math.sin((time / 1400) * Math.PI * 2 - Math.PI / 2) + 1) / 2;
-    materials.abnormal.opacity = THREE.MathUtils.lerp(0.4, 1, breathing);
+    materials.abnormal.opacity = THREE.MathUtils.lerp(glowOpacity.abnormal * 0.6, glowOpacity.abnormal, breathing);
 
     if (!camera || sprites.length === 0) return;
     const deltaSeconds = lastScaleUpdateTime
@@ -452,6 +492,7 @@ export function createLivestockSpriteSystem({ scene, sampleGround, groundOffset 
     getAnimalScale,
     setSelected,
     setStatus,
+    setGlowOpacity,
     update,
     dispose
   };
