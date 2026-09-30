@@ -47,7 +47,7 @@ import { createMapSources } from './map-sources.js';
 import { showModelPreview, hideModelPreview } from './model-preview.js';
 import './style.css';
 
-const token = import.meta.env.VITE_TIANDITU_TOKEN?.trim();
+const token = import.meta.env.TIANDITU_TOKEN?.trim();
 const root = document.querySelector('#scene-container');
 const loadingPanel = document.querySelector('#loading-panel');
 const loadingTitle = document.querySelector('#loading-title');
@@ -1283,7 +1283,7 @@ function checkProhibitedModal(hour) {
 
 async function bootstrap() {
   if (!token || token === 'your_token_here') {
-    showFatal('缺少天地图 Key', '请在 .env.local 中配置 VITE_TIANDITU_TOKEN');
+    showFatal('缺少天地图 Key', '请在 .env.local 中配置 TIANDITU_TOKEN');
     return;
   }
   const sources = createMapSources(token);

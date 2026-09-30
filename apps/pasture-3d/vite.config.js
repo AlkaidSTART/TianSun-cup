@@ -3,6 +3,7 @@ import { defineConfig } from 'vite'
 
 export default defineConfig({
   base: '/3d/',
+  envPrefix: 'TIANDITU_',
   server: {
     watch: {
       ignored: ['**/.edge-profile-panel/**'],
