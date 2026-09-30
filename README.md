@@ -116,3 +116,13 @@ npm run build:mp-weixin --workspace @tiansun/pasture-web
 ```
 
 浏览器端使用 HttpOnly 会话 Cookie；微信小程序使用 Bearer 令牌。生产部署应通过 HTTPS 提供 API，避免在网络传输中暴露登录信息。
+
+### HBuilderX 原生 App 连接 API
+
+在 HBuilderX 中打开 `apps/pasture-web` 作为项目根目录，在该目录新建 `.env`（可复制 `.env.example`），设置：
+
+```dotenv
+VITE_APP_API_BASE_URL=https://你的后端域名/api
+```
+
+这个地址必须能从手机访问，不能写 `/api`、`localhost` 或 `127.0.0.1`；App 不使用 H5 的 Vite `/api` 代理。可先在手机浏览器打开同一域名下的 `/api/health` 检查连通性。环境变量在打包时注入，修改后需要重新打包并安装；App 登录使用 Bearer 令牌。正式登录请使用有效 HTTPS，避免通过明文 HTTP 传输密码。

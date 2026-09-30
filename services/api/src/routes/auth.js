@@ -25,8 +25,8 @@ function clearSessionCookie(request, response) {
   response.setHeader('Set-Cookie', `${sessionCookieName}=; Path=/api; HttpOnly; SameSite=Strict; Max-Age=0${secureCookie(request)}`)
 }
 
-function isMiniProgram(request) {
-  return request.get('x-client-platform') === 'mp-weixin'
+function isTokenClient(request) {
+  return ['mp-weixin', 'app-plus'].includes(request.get('x-client-platform'))
 }
 
 const router = Router()
@@ -42,7 +42,7 @@ router.post('/auth/login', parseJson, (request, response, next) => {
       password: request.body?.password,
       clientAddress: request.ip,
     })
-    if (isMiniProgram(request)) success(response, result, '登录成功')
+    if (isTokenClient(request)) success(response, result, '登录成功')
     else {
       setSessionCookie(request, response, result.token)
       success(response, { expiresAt: result.expiresAt, user: result.user }, '登录成功')

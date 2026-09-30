@@ -88,6 +88,17 @@ test('legacy records migrate to the initial admin; sessions and user scopes are 
     assert.match(browserLogout.headers.get('set-cookie'), /Max-Age=0/)
     assert.equal((await fetch(`${base}/api/auth/me`, { headers: { Cookie: cookie } })).status, 401)
 
+    const appLoginResponse = await fetch(`${base}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Client-Platform': 'app-plus' },
+      body: JSON.stringify({ username: 'admin', password: initialPassword }),
+    })
+    const appLogin = await appLoginResponse.json()
+    assert.equal(appLoginResponse.status, 200)
+    assert.equal(typeof appLogin.data.token, 'string')
+    assert.equal((await call('GET', '/api/auth/me', undefined, appLogin.data.token)).status, 200)
+    assert.equal((await call('POST', '/api/auth/logout', undefined, appLogin.data.token)).status, 200)
+
     const adminLogin = await login('admin', initialPassword)
     assert.match(db.prepare('SELECT password_hash FROM users WHERE id = ?').get(admin.id).password_hash, /^scrypt\$16384\$8\$5\$/)
     assert.equal((await call('GET', '/api/livestock', undefined, adminLogin.token)).data.data.length, 1)

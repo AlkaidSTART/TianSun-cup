@@ -15,10 +15,20 @@ interface RequestOptions {
   headers?: Record<string, string>
 }
 
-export const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/+$/, '')
+let configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
+// #ifdef APP-PLUS
+configuredApiBaseUrl = import.meta.env.VITE_APP_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || ''
+// #endif
+export const apiBaseUrl = configuredApiBaseUrl.replace(/\/+$/, '')
 
 export function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   return new Promise((resolve, reject) => {
+    // #ifdef APP-PLUS
+    if (!/^https?:\/\//i.test(apiBaseUrl)) {
+      reject(new Error('App 端须在项目根目录 .env 配置 VITE_APP_API_BASE_URL 为手机可访问的完整 API 地址'))
+      return
+    }
+    // #endif
     // #ifdef MP-WEIXIN
     if (!/^https?:\/\//i.test(apiBaseUrl)) {
       reject(new Error('微信小程序需将 VITE_API_BASE_URL 配置为可访问的完整 API 地址'))
@@ -32,6 +42,9 @@ export function request<T>(path: string, options: RequestOptions = {}): Promise<
     // #endif
     // #ifdef MP-WEIXIN
     platformHeaders['X-Client-Platform'] = 'mp-weixin'
+    // #endif
+    // #ifdef APP-PLUS
+    platformHeaders['X-Client-Platform'] = 'app-plus'
     // #endif
     uni.request({
       url: `${apiBaseUrl}${path}`,
@@ -59,8 +72,8 @@ export function request<T>(path: string, options: RequestOptions = {}): Promise<
         }
         resolve(payload.data)
       },
-      fail: () => {
-        reject(new Error('无法连接后台接口，请检查服务或 VITE_API_BASE_URL 配置'))
+      fail: (error) => {
+        reject(new Error(`无法连接后台接口 ${apiBaseUrl}：${error.errMsg || '网络请求失败'}。请检查手机网络和接口地址`))
       },
     })
   })
