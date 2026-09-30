@@ -99,6 +99,23 @@ powershell -ExecutionPolicy Bypass -File .\start.ps1
 
 默认端口为 `3000`。要停止服务可运行 `./start.sh down`；Compose 数据卷 `livestock-data` 用于持久化 SQLite 数据。**不要执行 `docker compose down -v`，除非明确要删除数据库卷。**
 
+### 部署路径（`WEB_BASE_PATH`）
+
+Web 大屏构建时会把静态资源的绝对路径写入 `index.html`。`apps/pasture-3d` 默认使用 `/3d/`，与上面的 Express 部署一致。如果把 `apps/pasture-3d/dist` 单独上传到静态站点，需要让构建路径与访问地址一致，否则页面会因 CSS/JS 404 而**没有样式**：
+
+```bash
+# 部署到网站根目录（访问 /）
+WEB_BASE_PATH=/ npm run build --workspace @tiansun/pasture-3d
+
+# 部署到子路径（例如访问 /webgis/）
+WEB_BASE_PATH=/webgis/ npm run build --workspace @tiansun/pasture-3d
+
+# 默认：由 Express 托管在 /3d/
+npm run build --workspace @tiansun/pasture-3d
+```
+
+Docker 构建默认仍为 `/3d/`，无需额外配置。
+
 ## API 与数据
 
 现有 API 路径、字段、校验规则和响应格式见 [`docs/backend-api.md`](docs/backend-api.md)。默认 SQLite 文件位于 `services/api/data/tiansun.sqlite`；首次启动且数据库中没有牲畜记录时，会从 `services/api/data/livestock.seed.json` 导入种子记录。容器中数据库位于持久化卷，种子文件独立于该卷。
