@@ -1,10 +1,10 @@
 # 后端统一接口文档
 > 状态：统一 Express 服务当前 API 契约；以迁移前 `text_backend` 行为为兼容基线。
-> 日期：2026-09-23
-> 说明：HTTP 层现由 `services/api` 中的 Express 提供；此文只描述既有业务 API，不包含页面中的演示数据或新增能力。
+> 更新：2026-09-29
+> 说明：HTTP 层由 `services/api` 中的 Express 提供；本文覆盖现有业务 API 与新增的账号认证。页面演示数据仍不是 API 数据。
 ## 1. 范围与兼容原则
 统一后端由 `services/api` 中的 Express 提供 HTTP 服务。路由、数据字段、校验、状态码、消息与错误响应以迁移前的实现为兼容基线。
-覆盖范围仅包括当前已有的：健康检查、选项元数据、牲畜档案与待办事项。三维展示及 Vue 界面中的本地演示数据不因此变为后端 API，也不在此增加接口。
+覆盖健康检查、选项元数据、登录、用户管理、牲畜档案与待办事项。三维展示和操作端中的本地演示数据仍不是后端业务数据。
 - 基础路径：`/api`
 - 数据格式：JSON（UTF-8）
 - 请求体上限：1 MiB
@@ -18,6 +18,14 @@
 | --- | --- | --- | --- |
 | GET | `/api/health` | 服务与 SQLite 状态 | 无 |
 | GET | `/api/meta/options` | 表单选项 | 无 |
+| POST | `/api/auth/login` | 账号密码登录：浏览器设置 HttpOnly Cookie，小程序返回 Bearer 令牌 | `username`、`password` |
+| GET | `/api/auth/me` | 当前用户资料 | Cookie 或 Bearer 令牌 |
+| POST | `/api/auth/logout` | 撤销当前会话 | Cookie 或 Bearer 令牌 |
+| POST | `/api/auth/password` | 修改自己的密码并轮换会话 | `currentPassword`、`newPassword` |
+| GET | `/api/users` | 管理员查询账号 | Cookie 或 Bearer 令牌 |
+| POST | `/api/users` | 管理员创建账号 | `username`、`displayName`、`password`、`role` |
+| PATCH | `/api/users/:id` | 管理员更新显示名称/启用状态 | `displayName`、`isActive` |
+| POST | `/api/users/:id/reset-password` | 管理员重置密码，临时密码仅返回一次 | Cookie 或 Bearer 令牌 |
 | GET | `/api/livestock` | 查询牲畜列表 | `q`、`status`、`sourceType` 可选 |
 | GET | `/api/livestock/:id` | 查询单个牲畜档案 | 路径参数 `id` |
 | GET | `/api/livestock/stats` | 后台牲畜统计 | 无 |
@@ -56,6 +64,10 @@
 | HTTP | 含义 / 典型消息 |
 | --- | --- |
 | 400 | 字段校验失败、日期格式错误、JSON 无效、路径格式错误 |
+| 401 | 未登录、会话失效或密码错误 |
+| 403 | 非管理员访问账号管理，或首次登录尚未修改初始密码 |
+| 409 | 账号重名、重复初始化管理员 |
+| 429 | 15 分钟内登录错误次数过多 |
 | 403 | 静态资源路径越界（非业务 API） |
 | 404 | 接口不存在、牲畜/待办档案不存在、页面不存在 |
 | 413 | 请求体超过 1MB 限制 |
@@ -210,7 +222,7 @@
 ```
 不存在或无效 ID 时返回 `404`、“未找到该待办事项”。
 ## 7. Express 服务实现映射
-当前代码按以下职责组织，不增加 API：
+当前代码按以下职责组织；账号认证与用户管理 API 为本次新增：
 ```text
 services/api/
 ├── src/
@@ -218,8 +230,10 @@ services/api/
 │   ├── routes/
 │   │   ├── health.js          # /api/health、/api/meta/options
 │   │   ├── livestock.js       # /api/livestock/**
-│   │   └── todos.js           # /api/todos/**
-│   ├── store.js               # 现有业务/SQLite 操作，原则上不改业务
+│   │   ├── todos.js           # /api/todos/**
+│   │   └── auth.js            # /api/auth/**、/api/users/**
+│   ├── store.js               # 按当前账号限制业务数据，管理员可管理全部
+│   ├── auth-store.js          # 密码哈希、用户及会话
 │   └── db.js                  # 现有 SQLite 初始化
 └── server.js                  # 监听 PORT/HOST
 ```
@@ -234,4 +248,11 @@ Express app 在挂载静态资源 fallback 前挂载现有 API 路由；统一�
 - [ ] API 仍使用相同 SQLite 数据库/种子数据配置，并保证 Docker 卷持久化。
 - [ ] CORS、OPTIONS 行为与迁移前兼容。
 ## 9. 维护说明
-若后续产品需求变更 API，应同步更新本文并提供迁移/兼容说明。仅搬迁目录、替换 HTTP 框架或增加 Compose 启动，不应导致 API 清单和业务字段无故变化。
+后续变更 API 时应同步更新本文并提供迁移说明；认证引入的用户归属字段与访问限制已在本版文档记录。
+
+## 登录与归属规则（新增）
+
+- 除 `/api/health`、`/api/meta/options` 和 `/api/auth/login` 外，上表中的业务和用户接口均要求认证：H5/管理后台使用同源 `HttpOnly; SameSite=Strict` Cookie；微信小程序与原生 App 分别发送 `X-Client-Platform: mp-weixin`、`X-Client-Platform: app-plus`，并用 `Authorization: Bearer <token>` 访问后续接口。浏览器登录响应不返回令牌，小程序与原生 App 登录响应返回令牌。浏览器用 Cookie 发起的 POST/PATCH/PUT/DELETE 还需 `X-Requested-With: TianSun` 请求头，以降低跨站请求伪造风险。会话默认有效 7 天，服务端仅在 SQLite 的 `auth_sessions` 表保存令牌哈希。退出、停用账号、重置或修改密码都会撤销原会话。首次登录需修改管理员发放的初始密码，完成前不能调用业务接口。
+- 用户名（3–32 位字母/数字/`._-`）不区分大小写；密码 10–128 字符，仅保存独立盐值及 `scrypt` 哈希。浏览器本地只保留非敏感的登录提示标记，小程序与原生 App 本地保存会话令牌；均不保存密码，正式环境须使用 HTTPS。登录错误按“来源地址 + 用户名”限制为 15 分钟内最多 5 次。
+- `users` 表保存账号、显示名、角色、启用状态；`livestock.user_id` 与 `todos.user_id` 是认证账号归属，不同于 `livestock.owner`（牧户）。普通用户只能读取/修改自己的记录；管理员可以访问全部。客户端提交的 `userId` 不参与创建归属，记录创建时自动归当前登录用户。非本人记录对普通用户返回 404。
+- 首位管理员通过一次性 `auth:bootstrap` CLI 创建。旧表的现有数据和首次种子数据都归该管理员，迁移不删除记录；无管理员时业务接口无法登录，需先完成初始化。

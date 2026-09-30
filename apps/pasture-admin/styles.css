@@ -275,3 +275,34 @@ code { font-family: "SFMono-Regular", Consolas, monospace; }
   .modal { padding: 10px; }
   .modal-card { max-height: calc(100vh - 20px); }
 }
+/* Authentication and account administration */
+.admin-shell[hidden], .admin-login[hidden], #adminLoginForm[hidden], #adminPasswordForm[hidden], .one-time-secret[hidden] { display: none !important; }
+.button-primary { color: #fff; background: #256346; }
+.button-primary:hover { background: #184f36; }
+.button:disabled { opacity: .55; cursor: not-allowed; }
+.admin-login { display: grid; min-height: 100vh; place-items: center; padding: 28px; background: linear-gradient(135deg, #f0f5ef, #e5eee8); }
+.admin-login-card { width: min(430px, 100%); padding: 32px; border: 1px solid #dce7de; border-radius: 22px; background: #fff; box-shadow: 0 25px 65px rgba(19, 58, 38, .12); }
+.admin-login-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 30px; }
+.admin-login-brand strong, .admin-login-brand small { display: block; }
+.admin-login-brand strong { font-size: 17px; }
+.admin-login-brand small { margin-top: 3px; color: var(--muted); font-size: 11px; }
+.admin-login-card h1 { margin: 0; font-size: 24px; }
+.admin-login-card p { color: var(--muted); font-size: 12px; }
+.admin-login-card form { display: grid; gap: 15px; }
+.admin-login-card label, .create-user-form label { display: grid; gap: 7px; color: #385548; font-size: 12px; font-weight: 700; }
+.admin-login-card input, .create-user-form input, .create-user-form select { min-width: 0; padding: 11px 12px; border: 1px solid #dce7de; border-radius: 10px; color: var(--ink); background: #fff; }
+.admin-login-card .button-primary { margin-top: 6px; padding: 12px; }
+.admin-login-card .admin-login-error { min-height: 16px; margin-bottom: 0; color: #ba392f; }
+.users-panel { margin-top: 24px; overflow: hidden; }
+.create-user-form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; gap: 14px; align-items: end; padding: 20px; border-bottom: 1px solid var(--line); }
+.create-user-form .button { min-height: 40px; }
+.user-rows { padding: 6px 20px 20px; }
+.user-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 16px 0; border-bottom: 1px solid #e8eee9; }
+.user-row:last-child { border-bottom: 0; }
+.user-row strong, .user-row small { display: block; }
+.user-row small { margin-top: 4px; color: var(--muted); font-size: 11px; }
+.user-row-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.one-time-secret { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 18px 20px 6px; padding: 14px; border: 1px solid #e8d8a3; border-radius: 12px; background: #fff9e5; font-size: 11px; }
+.one-time-secret code { padding: 5px 8px; font-size: 13px; user-select: all; }
+@media (max-width: 1100px) { .create-user-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 620px) { .create-user-form { grid-template-columns: 1fr; } .user-row { align-items: flex-start; flex-direction: column; } }

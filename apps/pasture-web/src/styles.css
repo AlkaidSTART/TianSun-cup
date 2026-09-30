@@ -29,6 +29,40 @@
 * {
   box-sizing: border-box;
 }
+
+/* 还原原生 button 观感：去掉 uni-app 注入的按钮皮肤。
+   uni-app 会把模板里的 <button> 编译为 uni-button（H5）/原生 button（小程序），
+   默认自带 #f8f8f8 灰底、::after 1px 灰描边、14px 内边距、18px 字号等。
+   加上 html 后代选择器优先级为 0,0,2：高于运行时皮肤（0,0,1），
+   但仍低于项目中所有 class 选择器，不会影响各按钮自己的样式。 */
+button,
+uni-button,
+html button,
+html uni-button {
+  margin: 0;
+  padding: 0;
+  background-color: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: normal;
+  border-radius: 0;
+  overflow: visible;
+  -webkit-tap-highlight-color: transparent;
+}
+button::after,
+uni-button::after,
+html button::after,
+html uni-button::after {
+  content: none;
+  border: none;
+}
+button[disabled],
+uni-button[disabled],
+html uni-button[disabled] {
+  color: inherit;
+  background-color: transparent;
+  opacity: 0.55;
+}
 html,
 body,
 #app {

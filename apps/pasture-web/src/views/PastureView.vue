@@ -74,10 +74,12 @@ function showMessage(message: string) {
             @click="selected = zone"
           >
             <view class="zone-main">
-              <text class="zone-name">{{ zone.name }}</text>
+              <view class="zone-heading">
+                <text class="zone-name">{{ zone.name }}</text>
+                <text class="status" :class="zone.tone">{{ zone.quality }}</text>
+              </view>
               <text class="zone-meta">{{ zone.id }} · {{ zone.area }}</text>
             </view>
-            <text class="status" :class="zone.tone">{{ zone.quality }}</text>
             <view class="zone-load">
               <text class="zone-value">{{ zone.current }}</text>
               <view class="meter"><i :class="{ warn: zone.tone === 'warn' }" :style="{ width: `${Number(zone.pressure) * 100}%` }"></i></view>
@@ -150,13 +152,21 @@ function showMessage(message: string) {
   font: 14px var(--font-body);
 }
 
+/* 宽屏列布局保留横向滚动兜底；移动端在下方媒体查询中压缩列宽，使整行适配屏幕 */
 .zone-list {
   display: grid;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.zone-list::-webkit-scrollbar {
+  display: none;
 }
 
 .zone-row {
   display: grid;
-  grid-template-columns: minmax(130px, 1.4fr) 70px minmax(130px, 1fr) 70px;
+  grid-template-columns: minmax(200px, 1.25fr) minmax(170px, 1fr) 70px;
   gap: 12px;
   align-items: center;
   min-width: 560px;
@@ -168,6 +178,16 @@ function showMessage(message: string) {
   border-top: 0;
 }
 
+.zone-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.zone-heading .status {
+  flex: none;
+}
 .zone-main {
   min-width: 0;
 }
@@ -226,7 +246,11 @@ function showMessage(message: string) {
 
 @media (max-width: 620px) {
   .zone-row {
-    grid-template-columns: minmax(130px, 1.4fr) 70px 130px 70px;
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: minmax(118px, 1fr) minmax(80px, 100px) 36px;
+    gap: 6px;
+    padding: 12px 10px;
   }
 }
 </style>

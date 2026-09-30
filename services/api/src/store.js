@@ -30,6 +30,8 @@ const minMotherAgeMonths = 24
 const baseSelect = `
   SELECT
     id,
+    user_id AS userId,
+    (SELECT display_name FROM users WHERE users.id = livestock.user_id) AS accountName,
     species,
     breed,
     sex,
@@ -77,10 +79,17 @@ function normalizeId(value) {
   return cleanText(value).toUpperCase().replace(/\s+/g, '-')
 }
 
-function findRecord(id) {
+function actorScope(actor, column = 'user_id') {
+  if (!actor?.id || !['admin', 'operator'].includes(actor.role)) throw new ApiError(401, '请先登录')
+  return actor.role === 'admin' ? { sql: '', parameters: [] } : { sql: `${column} = ?`, parameters: [actor.id] }
+}
+
+function findRecord(id, actor) {
   const normalized = normalizeId(id)
   if (!normalized) return undefined
-  return db.prepare(`${baseSelect} WHERE id = ?`).get(normalized) || undefined
+  const scope = actorScope(actor)
+  const suffix = scope.sql ? ` AND ${scope.sql}` : ''
+  return db.prepare(`${baseSelect} WHERE id = ?${suffix}`).get(normalized, ...scope.parameters) || undefined
 }
 
 function localDateValue(date) {
@@ -104,7 +113,7 @@ function validateDate(value, fieldLabel, errors) {
   if (!value || Number.isNaN(Date.parse(value))) errors[fieldLabel] = `${fieldLabel}格式不正确`
 }
 
-function validatePayload(payload, editingId = undefined) {
+function validatePayload(payload, editingId = undefined, actor) {
   const errors = {}
   const id = normalizeId(payload.id)
   const sourceType = cleanText(payload.sourceType)
@@ -133,7 +142,7 @@ function validatePayload(payload, editingId = undefined) {
   if (sourceType === 'born') {
     if (!motherId) errors.motherId = '生产来源必须选择母亲'
     else {
-      const mother = findRecord(motherId)
+      const mother = findRecord(motherId, actor)
       if (!mother) errors.motherId = '未找到所选母畜'
       else if (mother.sex !== 'female') errors.motherId = '所选母畜性别不正确'
       else if (!isMatureMother(mother)) errors.motherId = '所选母畜未达到适繁月龄'
@@ -191,49 +200,27 @@ function insertRecord(record) {
     INSERT INTO livestock (
       id, species, breed, sex, source_type, mother_id, birth_date, purchase_date,
       supplier, purchase_price, pasture_id, pasture_name, owner, status, temperature,
-      heart_rate, steps, rumination, last_report_at, notes, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      heart_rate, steps, rumination, last_report_at, notes, created_at, updated_at, user_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    record.id,
-    record.species,
-    record.breed,
-    record.sex,
-    record.sourceType,
-    record.motherId,
-    record.birthDate,
-    record.purchaseDate,
-    record.supplier,
-    record.purchasePrice,
-    record.pastureId,
-    record.pastureName,
-    record.owner,
-    record.status,
-    record.temperature,
-    record.heartRate,
-    record.steps,
-    record.rumination,
-    record.lastReportAt,
-    record.notes,
-    record.createdAt,
-    record.updatedAt,
+    record.id, record.species, record.breed, record.sex, record.sourceType,
+    record.motherId, record.birthDate, record.purchaseDate, record.supplier,
+    record.purchasePrice, record.pastureId, record.pastureName, record.owner,
+    record.status, record.temperature, record.heartRate, record.steps, record.rumination,
+    record.lastReportAt, record.notes, record.createdAt, record.updatedAt, record.userId,
   )
 }
-
-export async function listLivestock(filters = {}) {
+export async function listLivestock(filters = {}, actor) {
+  const scope = actorScope(actor)
   const query = cleanText(filters.q).toLowerCase()
   const status = cleanText(filters.status)
   const sourceType = cleanText(filters.sourceType)
   const clauses = []
   const parameters = []
 
-  if (status) {
-    clauses.push('status = ?')
-    parameters.push(status)
-  }
-  if (sourceType) {
-    clauses.push('source_type = ?')
-    parameters.push(sourceType)
-  }
+  if (scope.sql) { clauses.push(scope.sql); parameters.push(...scope.parameters) }
+  if (status) { clauses.push('status = ?'); parameters.push(status) }
+  if (sourceType) { clauses.push('source_type = ?'); parameters.push(sourceType) }
   if (query) {
     clauses.push(`LOWER(
       COALESCE(id, '') || ' ' || COALESCE(breed, '') || ' ' || COALESCE(species, '') || ' ' ||
@@ -242,41 +229,34 @@ export async function listLivestock(filters = {}) {
     parameters.push(`%${query}%`)
   }
 
-  const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : ''
+  const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
   return db.prepare(`${baseSelect} ${where} ORDER BY datetime(updated_at) DESC, id DESC`).all(...parameters)
 }
-
-export async function getLivestock(id) {
-  const record = findRecord(id)
+export async function getLivestock(id, actor) {
+  const record = findRecord(id, actor)
   if (!record) throw new ApiError(404, '未找到该牲畜档案')
   return record
 }
-
-export async function listMothers() {
-  return db.prepare(`
-    ${baseSelect}
-    WHERE sex = 'female'
-      AND birth_date IS NOT NULL
-      AND birth_date <= ?
-    ORDER BY id ASC
-  `).all(motherCutoffDate()).map(summarizeMother)
+export async function listMothers(actor) {
+  const scope = actorScope(actor)
+  const clauses = ["sex = 'female'", 'birth_date IS NOT NULL', 'birth_date <= ?']
+  const parameters = [motherCutoffDate()]
+  if (scope.sql) { clauses.push(scope.sql); parameters.push(...scope.parameters) }
+  return db.prepare(`${baseSelect} WHERE ${clauses.join(' AND ')} ORDER BY id ASC`)
+    .all(...parameters)
+    .map(summarizeMother)
 }
-
-export async function createLivestock(payload) {
-  const normalized = validatePayload(payload)
+export async function createLivestock(payload, actor) {
+  actorScope(actor)
+  const normalized = validatePayload(payload, undefined, actor)
   const now = new Date().toISOString()
-  const record = {
-    ...normalized,
-    createdAt: now,
-    updatedAt: now,
-  }
+  const record = { ...normalized, userId: actor.id, createdAt: now, updatedAt: now }
   insertRecord(record)
-  return record
+  return getLivestock(record.id, actor)
 }
-
-export async function updateLivestock(id, payload) {
-  const previous = await getLivestock(id)
-  const normalized = validatePayload({ ...previous, ...payload, id: previous.id }, previous.id)
+export async function updateLivestock(id, payload, actor) {
+  const previous = await getLivestock(id, actor)
+  const normalized = validatePayload({ ...previous, ...payload, id: previous.id }, previous.id, actor)
   const record = {
     ...previous,
     ...normalized,
@@ -284,42 +264,29 @@ export async function updateLivestock(id, payload) {
     createdAt: previous.createdAt,
     updatedAt: new Date().toISOString(),
   }
-
+  const scope = actorScope(actor)
+  const where = scope.sql ? `id = ? AND ${scope.sql}` : 'id = ?'
+  const parameters = [
+    record.species, record.breed, record.sex, record.sourceType, record.motherId,
+    record.birthDate, record.purchaseDate, record.supplier, record.purchasePrice,
+    record.pastureId, record.pastureName, record.owner, record.status,
+    record.temperature, record.heartRate, record.steps, record.rumination,
+    record.lastReportAt, record.notes, record.updatedAt, record.id,
+    ...scope.parameters,
+  ]
   db.prepare(`
     UPDATE livestock SET
       species = ?, breed = ?, sex = ?, source_type = ?, mother_id = ?, birth_date = ?,
       purchase_date = ?, supplier = ?, purchase_price = ?, pasture_id = ?, pasture_name = ?,
       owner = ?, status = ?, temperature = ?, heart_rate = ?, steps = ?, rumination = ?,
       last_report_at = ?, notes = ?, updated_at = ?
-    WHERE id = ?
-  `).run(
-    record.species,
-    record.breed,
-    record.sex,
-    record.sourceType,
-    record.motherId,
-    record.birthDate,
-    record.purchaseDate,
-    record.supplier,
-    record.purchasePrice,
-    record.pastureId,
-    record.pastureName,
-    record.owner,
-    record.status,
-    record.temperature,
-    record.heartRate,
-    record.steps,
-    record.rumination,
-    record.lastReportAt,
-    record.notes,
-    record.updatedAt,
-    record.id,
-  )
-
-  return record
+    WHERE ${where}
+  `).run(...parameters)
+  return getLivestock(id, actor)
 }
-
-export async function getStats() {
+export async function getStats(actor) {
+  const scope = actorScope(actor)
+  const where = scope.sql ? `WHERE ${scope.sql}` : ''
   const row = db.prepare(`
     SELECT
       COUNT(*) AS total,
@@ -332,9 +299,8 @@ export async function getStats() {
       COALESCE(SUM(CASE WHEN source_type = 'purchased' THEN 1 ELSE 0 END), 0) AS purchased,
       COALESCE(SUM(CASE WHEN sex = 'female' THEN 1 ELSE 0 END), 0) AS female,
       COALESCE(SUM(CASE WHEN sex = 'male' THEN 1 ELSE 0 END), 0) AS male
-    FROM livestock
-  `).get()
-
+    FROM livestock ${where}
+  `).get(...scope.parameters)
   return Object.fromEntries(Object.entries(row).map(([key, value]) => [key, Number(value)]))
 }
 
@@ -351,6 +317,8 @@ const allowedTodoTypes = new Set(Object.keys(todoTypeMeta))
 const todoSelect = `
   SELECT
     id,
+    user_id AS userId,
+    (SELECT display_name FROM users WHERE users.id = todos.user_id) AS accountName,
     type,
     todo_date AS date,
     todo_time AS time,
@@ -396,60 +364,63 @@ function validateTodoPayload(payload = {}) {
   return { type, date, time, title, detail, status: meta.status, tone: meta.tone }
 }
 
-export async function listTodos(filters = {}) {
+export async function listTodos(filters = {}, actor) {
+  const scope = actorScope(actor)
   const date = cleanText(filters.date)
   if (date && !isTodoDate(date)) throw new ApiError(400, '日期格式不正确')
-  if (date) {
-    return db.prepare(`${todoSelect} WHERE todo_date = ? ORDER BY todo_time ASC, id ASC`)
-      .all(date)
-      .map(normalizeTodo)
-  }
-  return db.prepare(`${todoSelect} ORDER BY todo_date ASC, todo_time ASC, id ASC`).all().map(normalizeTodo)
+  const clauses = []
+  const parameters = []
+  if (scope.sql) { clauses.push(scope.sql); parameters.push(...scope.parameters) }
+  if (date) { clauses.push('todo_date = ?'); parameters.push(date) }
+  const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
+  return db.prepare(`${todoSelect} ${where} ORDER BY todo_date ASC, todo_time ASC, id ASC`)
+    .all(...parameters)
+    .map(normalizeTodo)
 }
-
-export async function createTodo(payload) {
+export async function createTodo(payload, actor) {
+  actorScope(actor)
   const todo = validateTodoPayload(payload)
   const now = new Date().toISOString()
   const result = db.prepare(`
-    INSERT INTO todos (type, todo_date, todo_time, title, detail, status, tone, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(todo.type, todo.date, todo.time, todo.title, todo.detail, todo.status, todo.tone, now, now)
-
-  return normalizeTodo(db.prepare(`${todoSelect} WHERE id = ?`).get(result.lastInsertRowid))
+    INSERT INTO todos (type, todo_date, todo_time, title, detail, status, tone, created_at, updated_at, user_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(todo.type, todo.date, todo.time, todo.title, todo.detail, todo.status, todo.tone, now, now, actor.id)
+  return findTodo(result.lastInsertRowid, actor)
 }
-
-function findTodo(id) {
+function findTodo(id, actor) {
   const numericId = Number(id)
   if (!Number.isInteger(numericId) || numericId <= 0) return undefined
-  return normalizeTodo(db.prepare(`${todoSelect} WHERE id = ?`).get(numericId))
+  const scope = actorScope(actor)
+  const suffix = scope.sql ? ` AND ${scope.sql}` : ''
+  return normalizeTodo(db.prepare(`${todoSelect} WHERE id = ?${suffix}`).get(numericId, ...scope.parameters))
 }
-
-export async function completeTodo(id) {
-  const todo = findTodo(id)
+export async function completeTodo(id, actor) {
+  const todo = findTodo(id, actor)
   if (!todo) throw new ApiError(404, '未找到该待办事项')
-
-  db.prepare("UPDATE todos SET status = '已完成', tone = 'ok', updated_at = ? WHERE id = ?")
-    .run(new Date().toISOString(), Number(id))
-  return findTodo(id)
+  const scope = actorScope(actor)
+  const where = scope.sql ? `id = ? AND ${scope.sql}` : 'id = ?'
+  db.prepare(`UPDATE todos SET status = '已完成', tone = 'ok', updated_at = ? WHERE ${where}`)
+    .run(new Date().toISOString(), Number(id), ...scope.parameters)
+  return findTodo(id, actor)
 }
-
-export async function updateTodo(id, payload) {
-  const previous = findTodo(id)
+export async function updateTodo(id, payload, actor) {
+  const previous = findTodo(id, actor)
   if (!previous) throw new ApiError(404, '未找到该待办事项')
-
   const todo = validateTodoPayload({ ...previous, ...payload, type: previous.type })
+  const scope = actorScope(actor)
+  const where = scope.sql ? `id = ? AND ${scope.sql}` : 'id = ?'
   db.prepare(`
     UPDATE todos
     SET type = ?, todo_date = ?, todo_time = ?, title = ?, detail = ?, updated_at = ?
-    WHERE id = ?
-  `).run(todo.type, todo.date, todo.time, todo.title, todo.detail, new Date().toISOString(), Number(id))
-  return findTodo(id)
+    WHERE ${where}
+  `).run(todo.type, todo.date, todo.time, todo.title, todo.detail, new Date().toISOString(), Number(id), ...scope.parameters)
+  return findTodo(id, actor)
 }
-
-export async function deleteTodo(id) {
-  const todo = findTodo(id)
+export async function deleteTodo(id, actor) {
+  const todo = findTodo(id, actor)
   if (!todo) throw new ApiError(404, '未找到该待办事项')
-
-  db.prepare('DELETE FROM todos WHERE id = ?').run(Number(id))
+  const scope = actorScope(actor)
+  const where = scope.sql ? `id = ? AND ${scope.sql}` : 'id = ?'
+  db.prepare(`DELETE FROM todos WHERE ${where}`).run(Number(id), ...scope.parameters)
   return { id: todo.id }
 }
