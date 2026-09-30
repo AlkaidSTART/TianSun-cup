@@ -102,3 +102,17 @@ powershell -ExecutionPolicy Bypass -File .\start.ps1
 ## API 与数据
 
 现有 API 路径、字段、校验规则和响应格式见 [`docs/backend-api.md`](docs/backend-api.md)。默认 SQLite 文件位于 `services/api/data/tiansun.sqlite`；首次启动且数据库中没有牲畜记录时，会从 `services/api/data/livestock.seed.json` 导入种子记录。容器中数据库位于持久化卷，种子文件独立于该卷。
+
+## 账号登录（首次部署）
+
+首次启动后运行 `npm run auth:bootstrap --workspace @tiansun/api -- --username admin --display-name 管理员` 创建初始管理员；若使用 Docker，改为 `docker compose exec app npm run auth:bootstrap --workspace @tiansun/api -- --username admin --display-name 管理员`。命令会在交互式终端隐藏输入密码，并将现有牲畜和待办归到该账号；它不能重复执行。随后到 `/admin/` 登录并创建其他用户。
+
+账户及用户业务数据均存于 SQLite（开发环境 `services/api/data/tiansun.sqlite`，Docker 中 `/app/services/api/data/tiansun.sqlite` 和 `livestock-data` 卷）。H5、小程序和管理后台业务 API 均要求登录；3D 静态演示页不需要登录。发布小程序前须配置真实 AppID，并在构建时设置 `VITE_API_BASE_URL` 为设备可访问的完整 API 地址。
+
+```powershell
+# 小程序构建示例；地址须指向实际部署的 API，不要使用手机自身的 localhost
+$env:VITE_API_BASE_URL = 'https://api.example.com/api'
+npm run build:mp-weixin --workspace @tiansun/pasture-web
+```
+
+浏览器端使用 HttpOnly 会话 Cookie；微信小程序使用 Bearer 令牌。生产部署应通过 HTTPS 提供 API，避免在网络传输中暴露登录信息。

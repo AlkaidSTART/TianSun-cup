@@ -1,3 +1,5 @@
+import { hasAuthSessionHint, goToLogin } from '../services/session'
+
 export type AppView = 'dashboard' | 'alerts' | 'livestock' | 'pasture' | 'profile' | 'consultation'
 
 const routes: Record<AppView, string> = {
@@ -15,6 +17,7 @@ export function isAppView(value: string): value is AppView {
 
 export function navigateToView(view: string) {
   if (!isAppView(view)) return
+  if (!hasAuthSessionHint()) { goToLogin(); return }
 
   const url = routes[view]
   const pages = getCurrentPages()

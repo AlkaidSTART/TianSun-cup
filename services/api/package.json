@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "node --experimental-sqlite --disable-warning=ExperimentalWarning --watch server.js",
     "start": "node --experimental-sqlite --disable-warning=ExperimentalWarning server.js",
-    "test": "node --experimental-sqlite --disable-warning=ExperimentalWarning --test"
+    "test": "node --experimental-sqlite --disable-warning=ExperimentalWarning --test",
+    "auth:bootstrap": "node --experimental-sqlite --disable-warning=ExperimentalWarning scripts/bootstrap-admin.js"
   },
   "engines": {
     "node": ">=22.5"

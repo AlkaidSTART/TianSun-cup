@@ -6,6 +6,7 @@ import { ApiError } from './store.js'
 import healthRoutes from './routes/health.js'
 import livestockRoutes from './routes/livestock.js'
 import todoRoutes from './routes/todos.js'
+import authRoutes from './routes/auth.js'
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url))
 const serviceDir = path.resolve(currentDir, '..')
@@ -24,7 +25,7 @@ app.disable('x-powered-by')
 app.use((request, response, next) => {
   response.setHeader('Access-Control-Allow-Origin', '*')
   response.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE,OPTIONS')
-  response.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+  response.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Client-Platform')
   response.setHeader('Access-Control-Max-Age', '86400')
 
   if (request.method === 'OPTIONS') {
@@ -39,6 +40,7 @@ app.use((request, response, next) => {
 })
 
 app.use('/api', healthRoutes)
+app.use('/api', authRoutes)
 app.use('/api', livestockRoutes)
 app.use('/api', todoRoutes)
 

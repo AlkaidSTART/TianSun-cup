@@ -1,3 +1,5 @@
+import { authHeaders, handleUnauthorized, initAdminAuth } from './auth-ui.js'
+
 const state = {
   records: [],
   stats: null,
@@ -87,8 +89,8 @@ function setConnection(ok, message) {
 
 async function requestApi(path, options = {}) {
   const response = await fetch(path, {
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
     ...options,
+    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'TianSun', ...authHeaders(), ...(options.headers || {}) },
   })
   let payload
   try {
@@ -96,6 +98,7 @@ async function requestApi(path, options = {}) {
   } catch {
     throw new Error(`接口返回异常（HTTP ${response.status}）`)
   }
+  if (response.status === 401) handleUnauthorized()
   if (!response.ok || payload.code !== 0) {
     const details = payload.details ? `：${Object.values(payload.details).join('，')}` : ''
     throw new Error(`${payload.message || '请求失败'}${details}`)
@@ -129,7 +132,7 @@ function getFilteredRecords() {
   const sourceType = elements.sourceFilter.value
   const status = elements.statusFilter.value
   return state.records.filter((record) => {
-    const searchable = [record.id, record.breed, record.species, record.owner, record.pastureName, record.motherId]
+    const searchable = [record.id, record.breed, record.species, record.owner, record.pastureName, record.motherId, record.accountName]
       .filter(Boolean)
       .join(' ')
       .toLowerCase()
@@ -161,6 +164,7 @@ function renderRecords() {
         <td><div class="cell-main"><strong>${escapeHtml(record.breed)}</strong><small>${escapeHtml(record.sex === 'female' ? '母' : '公')} · ${escapeHtml(record.species)}</small></div></td>
         <td><div class="cell-main"><strong>${escapeHtml(relation)}</strong><small>${record.sourceType === 'born' ? `出生 ${formatDate(record.birthDate)}` : `购入 ${formatDate(record.purchaseDate)}`}</small></div></td>
         <td><div class="cell-main"><strong>${escapeHtml(record.pastureName)}</strong><small>${escapeHtml(record.owner)}</small></div></td>
+        <td>${escapeHtml(record.accountName || '未分配')}</td>
         <td><span class="status-badge ${escapeHtml(record.status)}">${escapeHtml(status.label)}</span></td>
         <td>${escapeHtml(formatDateTime(record.lastReportAt))}</td>
       </tr>
@@ -255,6 +259,7 @@ function openDetail(recordId) {
       <span class="status-badge ${escapeHtml(record.status)}">${escapeHtml(status.label)}</span>
     </div>
     <div class="detail-grid">
+      <div class="detail-item"><label>账号归属</label><strong>${escapeHtml(record.accountName || record.userId || '未分配')}</strong></div>
       <div class="detail-item"><label>来源类型</label><strong>${escapeHtml(source.label)}</strong></div>
       <div class="detail-item"><label>所属牧户</label><strong>${escapeHtml(record.owner)}</strong></div>
       ${sourceDetail}
@@ -295,4 +300,4 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') closeDetail()
 })
 
-loadData({ silent: true })
+initAdminAuth(() => loadData({ silent: true }))

@@ -8,7 +8,26 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <div class="admin-shell">
+    <div class="admin-login" id="loginScreen">
+      <div class="admin-login-card">
+        <div class="admin-login-brand"><span class="brand-mark">牧</span><div><strong>天牧智控</strong><small>乡镇畜牧管理后台</small></div></div>
+        <form id="adminLoginForm">
+          <h1>管理员登录</h1><p>请输入管理员账号及密码</p>
+          <label>登录账号<input name="username" autocomplete="username" maxlength="32" required /></label>
+          <label>登录密码<input name="password" type="password" autocomplete="current-password" required /></label>
+          <button class="button button-primary" type="submit">登录后台</button>
+        </form>
+        <form id="adminPasswordForm" hidden>
+          <h1>设置新密码</h1><p>首次登录或密码重置后需要更换初始密码</p>
+          <label>当前密码<input name="currentPassword" type="password" autocomplete="current-password" required /></label>
+          <label>新密码<input name="newPassword" type="password" autocomplete="new-password" minlength="10" required /></label>
+          <label>确认新密码<input name="confirmPassword" type="password" autocomplete="new-password" minlength="10" required /></label>
+          <button class="button button-primary" type="submit">修改密码并继续</button>
+        </form>
+        <p class="admin-login-error" id="loginError" role="alert"></p>
+      </div>
+    </div>
+    <div class="admin-shell" id="adminShell" hidden>
       <aside class="sidebar">
         <a class="brand" href="/admin/" aria-label="天牧智控管理后台">
           <span class="brand-mark">牧</span>
@@ -22,6 +41,7 @@
           <a href="#overview"><span>01</span>态势概览</a>
           <a class="active" href="#registry"><span>02</span>牲畜档案</a>
           <a href="#integration"><span>03</span>数据接入</a>
+          <a href="#users"><span>04</span>用户管理</a>
         </nav>
 
         <div class="sidebar-note">
@@ -44,7 +64,8 @@
               <i></i><span>检查服务状态</span>
             </div>
             <button class="button button-secondary" id="refreshButton" type="button">刷新数据</button>
-            <div class="user-chip"><span>李</span><div><strong>李建国</strong><small>乡镇技术员</small></div></div>
+            <div class="user-chip"><span id="adminAvatar">牧</span><div><strong id="adminName">管理员</strong><small id="adminUsername"></small></div></div>
+            <button class="button button-secondary" id="logoutButton" type="button">退出</button>
           </div>
         </header>
 
@@ -111,6 +132,7 @@
                       <th>品种 / 性别</th>
                       <th>母畜 / 供应商</th>
                       <th>所属草场</th>
+                      <th>账号归属</th>
                       <th>健康状态</th>
                       <th>最后上报</th>
                     </tr>
@@ -149,6 +171,19 @@
                 </div>
               </article>
             </aside>
+          </section>
+
+          <section class="panel users-panel" id="users">
+            <div class="panel-heading"><div><span class="eyebrow">ACCOUNTS</span><h3>用户管理</h3><p>账号由管理员创建，首次登录需修改初始密码</p></div></div>
+            <form id="createUserForm" class="create-user-form">
+              <label>登录账号<input name="username" required minlength="3" maxlength="32" placeholder="字母、数字、._-" /></label>
+              <label>显示名称<input name="displayName" required maxlength="40" placeholder="用户姓名" /></label>
+              <label>初始密码<input name="password" type="password" required minlength="10" maxlength="128" autocomplete="new-password" /></label>
+              <label>角色<select name="role"><option value="operator">操作员</option><option value="admin">管理员</option></select></label>
+              <button class="button button-primary" type="submit">创建账号</button>
+            </form>
+            <div class="one-time-secret" id="temporaryPasswordBox" hidden><strong>临时密码（仅显示这一次）</strong><code id="temporaryPassword"></code><button type="button" class="button button-secondary" id="copyTemporaryPassword">复制密码</button></div>
+            <div class="user-rows" id="userRows"></div>
           </section>
         </main>
       </div>

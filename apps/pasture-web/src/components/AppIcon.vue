@@ -11,6 +11,7 @@ const props = withDefaults(defineProps<{
 })
 
 const iconNames: Record<string, string> = {
+  back: 'back',
   alert: 'info-filled',
   baby: 'personadd',
   bell: 'notification',

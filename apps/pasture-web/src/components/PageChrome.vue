@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import AppIcon from './AppIcon.vue'
+import { currentUser } from '../services/session'
 import { navigateToView } from '../utils/navigation'
 
-withDefaults(defineProps<{ active: string; avatar?: string; refresh?: boolean }>(), { avatar: '李', refresh: true })
-const emit = defineEmits<{ (event: 'refresh'): void }>()
+const props = withDefaults(defineProps<{ active: string; avatar?: string; refresh?: boolean; bell?: boolean }>(), { refresh: true, bell: false })
+const avatarText = computed(() => props.avatar || currentUser.value?.displayName?.slice(0, 1) || '牧')
+const emit = defineEmits<{ (event: 'refresh'): void; (event: 'bell'): void }>()
 
 function navigate(view: string) {
   navigateToView(view)
@@ -14,7 +17,7 @@ function navigate(view: string) {
   <div class="app">
     <header class="topbar">
       <button class="brand" aria-label="返回总览" @click="navigate('dashboard')"><span class="brand-mark">牧</span><span class="brand-title">牧场智控<span class="brand-sub">· 阿坝示范区</span></span></button>
-      <div class="top-actions"><button v-if="refresh" class="icon-btn" aria-label="刷新数据" @click="emit('refresh')"><AppIcon name="refresh" :size="17" /></button><span class="avatar">{{ avatar }}</span></div>
+      <div class="top-actions"><button v-if="refresh" class="icon-btn" aria-label="刷新数据" @click="emit('refresh')"><AppIcon name="refresh" :size="17" /></button><button v-if="bell" class="icon-btn" aria-label="查看通知" @click="emit('bell')"><AppIcon name="bell" :size="17" /></button><span class="avatar">{{ avatarText }}</span></div>
     </header>
     <slot />
     <nav class="bottom-nav" aria-label="主导航">

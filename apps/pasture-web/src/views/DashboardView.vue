@@ -1,22 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import {
-  Bell,
   Check,
   CircleAlert,
-  Home,
   LocateFixed,
   Minus,
-  PawPrint,
   Plus,
-  RefreshCw,
   TriangleAlert,
-  UserRound,
-  Waves,
   WifiOff,
   X,
 } from 'lucide-vue-next'
 import { completeTodo, loadTodos, todoCurrentDate, todoError, todoItems, todoLoading, type TodoItem } from '../data/todoList'
+import PageChrome from '../components/PageChrome.vue'
 
 type DotStatus = 'normal' | 'attn' | 'alert' | 'offline'
 
@@ -108,11 +103,7 @@ function focusDot() {
 </script>
 
 <template>
-  <div class="app">
-    <header class="topbar">
-      <div class="brand"><div class="brand-mark">牧</div><div class="brand-title">牧场智控<span class="brand-sub">· 阿坝示范区</span></div></div>
-      <div class="top-actions"><button class="icon-btn" aria-label="刷新数据" @click="showMessage('已刷新最新数据')"><RefreshCw :size="17" /></button><button class="icon-btn" aria-label="查看通知" @click="showMessage('暂无新的系统通知')"><Bell :size="17" /></button><div class="avatar">扎</div></div>
-    </header>
+  <PageChrome active="dashboard" bell @refresh="showMessage('已刷新最新数据')" @bell="showMessage('暂无新的系统通知')">
 
     <main class="content">
       <div class="welcome"><div><div class="eyebrow">LIVE FIELD MONITOR</div><h1 class="page-title">今天的牧场，一眼掌握。</h1><p class="page-description">四川 · 阿坝县 · 智慧放牧示范区　<span>刚刚更新</span></p></div><div class="date-chip">2026 / 09 / 07　☼ 14:32</div></div>
@@ -126,11 +117,10 @@ function focusDot() {
       <div class="section-grid section"><section class="panel"><div class="panel-head"><div><div class="panel-title">草场分区</div><div class="panel-meta">3 个管理单元 · 实时承载</div></div><button class="link-btn" @click="emit('navigate', 'pasture')">分区详情</button></div><table class="zone-table"><thead><tr><th>区域</th><th>质量</th><th>载畜 / 上限</th><th>压力</th></tr></thead><tbody><tr><td><div class="zone-name"><i class="zone-swatch"></i>东沟草场 <small>P-A-01</small></div></td><td><span class="quality">优良</span></td><td>45 / 60 头</td><td>0.75</td></tr><tr><td><div class="zone-name"><i class="zone-swatch"></i>河谷草场 <small>P-A-03</small></div></td><td><span class="quality">优良</span></td><td>38 / 55 头</td><td>0.69</td></tr><tr><td><div class="zone-name"><i class="zone-swatch warn"></i>北坡草场 <small>P-A-02</small></div></td><td><span class="quality warn">一般</span></td><td>45 / 48 头</td><td>0.94</td></tr></tbody></table></section><section class="panel"><div class="panel-head"><div><div class="panel-title">近 7 日草场压力</div><div class="panel-meta">指数越低越健康</div></div><span class="panel-meta">均值 0.68</span></div><div class="mini-chart"><div class="bar-col" style="height:56%"><b>01</b></div><div class="bar-col" style="height:62%"><b>02</b></div><div class="bar-col" style="height:50%"><b>03</b></div><div class="bar-col" style="height:68%"><b>04</b></div><div class="bar-col" style="height:74%"><b>05</b></div><div class="bar-col" style="height:78%"><b>06</b></div><div class="bar-col" style="height:75%;background:linear-gradient(to top,#f6c76e,#fef3c7)"><b>今</b></div></div></section></div>
     </main>
 
-    <nav class="bottom-nav" aria-label="主导航"><button class="nav-item active"><Home class="nav-ico" :size="19" />总览</button><button class="nav-item" @click="emit('navigate', 'alerts')"><TriangleAlert class="nav-ico" :size="19" />告警</button><button class="nav-item" @click="emit('navigate', 'livestock')"><PawPrint class="nav-ico" :size="19" />牲畜</button><button class="nav-item" @click="emit('navigate', 'pasture')"><Waves class="nav-ico" :size="19" />草场</button><button class="nav-item" @click="emit('navigate', 'profile')"><UserRound class="nav-ico" :size="19" />我的</button></nav>
-  </div>
 
   <div class="drawer" :class="{ open: isDrawerOpen }" @click.self="closeDrawer"><div class="drawer-card"><div class="drawer-head"><h2>牲畜详情 · {{ activeDot?.id }}</h2><button class="close" aria-label="关闭" @click="closeDrawer"><X :size="18" /></button></div><div v-if="activeDot" class="detail-grid"><div class="detail"><label>健康状态</label><strong>{{ activeDot.label }}</strong></div><div class="detail"><label>体温</label><strong>{{ activeDot.temp }}</strong></div><div class="detail"><label>所在区域</label><strong style="font-size:14px">{{ activeDot.area }}</strong></div><div class="detail"><label>今日步数</label><strong>2,340</strong></div><div class="detail"><label>心率</label><strong>62 <small>次/分</small></strong></div><div class="detail"><label>反刍次数</label><strong>42 <small>次/天</small></strong></div></div><div class="drawer-actions"><button class="btn primary" @click="focusDot">定位到地图</button><button class="btn secondary" @click="markHandled">标记已处理</button></div></div></div>
   <div class="toast" :class="{ show: toastText }">{{ toastText }}</div>
+  </PageChrome>
 </template>
 
 <style scoped>

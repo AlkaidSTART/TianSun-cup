@@ -1,4 +1,5 @@
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
+import { currentUser } from '../services/session'
 import {
   todoApi,
   type TodoDraft,
@@ -36,6 +37,15 @@ export const todoLoading = ref(false)
 export const todoError = ref('')
 
 let latestRequest = 0
+
+// Prevent one account's cached todos from appearing when another account signs in.
+watch(currentUser, (user, previous) => {
+  if (user?.id === previous?.id) return
+  latestRequest++
+  todoItems.value = []
+  todoError.value = ''
+  todoLoading.value = false
+}, { flush: 'sync' })
 
 function sortTodos(items: TodoItem[]) {
   return [...items].sort((left, right) => `${left.date} ${left.time}`.localeCompare(`${right.date} ${right.time}`))
