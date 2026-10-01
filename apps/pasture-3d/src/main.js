@@ -73,6 +73,11 @@ const simulationTimeLabel = document.querySelector('#simulation-time-label');
 const simulationDayLabel = document.querySelector('#simulation-day-label');
 const simulationSpeed = document.querySelector('#simulation-speed');
 const simulationToggle = document.querySelector('#simulation-toggle');
+const headerSim = document.querySelector('#header-sim');
+const headerSimDay = document.querySelector('#header-sim-day');
+const headerSimTime = document.querySelector('#header-sim-time');
+const headerSimPhase = document.querySelector('#header-sim-phase');
+const headerSimProgress = document.querySelector('#header-sim-progress');
 const messageList = document.querySelector('#message-list');
 const messageCount = document.querySelector('#message-count');
 const messageClear = document.querySelector('#message-clear');
@@ -94,7 +99,12 @@ function formatMessageTime(date = new Date()) {
 
 function createMessageFeed() {
   const items = [];
+  const renderedKeys = new Set();
   let nextId = 0;
+
+  function entryKey(entry) {
+    return `${entry.kind}|${entry.time}|${entry.text}`;
+  }
 
   function isPinnedToLatest() {
     if (!messageList) return true;
@@ -149,6 +159,7 @@ function createMessageFeed() {
     messageList.append(createRow(item, animate));
 
     items.push(item);
+    renderedKeys.add(entryKey(item));
     updateCount();
     if (pinned) {
       scrollToLatest();
@@ -161,17 +172,23 @@ function createMessageFeed() {
   }
 
   // 按时间轴整体重绘：只显示「模拟时间 ≤ 当前进度」的消息，因此拖动进度条能正反过滤。
+  // 与上一帧对比，只有新出现的消息才播放「滚动入镜」，多条同时出现时依次错开。
   function setItems(entries) {
     if (!messageList) return;
+    const previousKeys = new Set(renderedKeys);
     items.length = 0;
+    renderedKeys.clear();
     messageList.replaceChildren();
     if (!entries.length) {
       renderEmptyState();
       updateCount();
       return;
     }
+    let stagger = 0;
     entries.forEach((entry) => {
       const meta = MESSAGE_KINDS[entry.kind] ?? MESSAGE_KINDS.overflow;
+      const key = entryKey(entry);
+      const isNew = !previousKeys.has(key);
       const item = {
         id: `msg-${++nextId}`,
         kind: entry.kind,
@@ -180,7 +197,14 @@ function createMessageFeed() {
         icon: meta.icon
       };
       items.push(item);
-      messageList.append(createRow(item, false));
+      renderedKeys.add(key);
+      const row = createRow(item, isNew);
+      if (isNew) {
+        // 同时入镜的消息按出现顺序错开，形成一条条滚动滑入的效果
+        row.style.animationDelay = `${Math.min(stagger, 8) * 80}ms`;
+        stagger += 1;
+      }
+      messageList.append(row);
     });
     updateCount();
     scrollToLatest();
@@ -212,6 +236,51 @@ function layoutMessageFeed() {
   const available = innerHeight - legend.getBoundingClientRect().bottom - gap - bottomOffset;
   feed.style.height = `${Math.max(158, Math.min(preferredHeight, available) * heightScale)}px`;
 }
+
+// 实时态势抽屉栏：可收纳/展开，并在宽度动画过程中同步下方消息面板高度。
+const legendPanel = document.querySelector('#legend-panel');
+const legendToggle = document.querySelector('#legend-toggle');
+const LEGEND_COLLAPSED_KEY = 'pasture3d:legend-collapsed';
+
+function setLegendCollapsed(collapsed, { persist = true } = {}) {
+  if (!legendPanel || !legendToggle) return;
+  legendPanel.classList.toggle('collapsed', collapsed);
+  legendToggle.setAttribute('aria-expanded', String(!collapsed));
+  legendToggle.setAttribute('aria-label', collapsed ? '展开实时态势面板' : '收起实时态势面板');
+  legendToggle.title = collapsed ? '展开' : '收起';
+  if (persist) {
+    try {
+      localStorage.setItem(LEGEND_COLLAPSED_KEY, collapsed ? '1' : '0');
+    } catch (error) {
+      // 隐私模式等场景下 localStorage 不可用，忽略即可。
+    }
+  }
+}
+
+function initLegendDrawer() {
+  if (!legendPanel || !legendToggle) return;
+  let collapsed = false;
+  try {
+    collapsed = localStorage.getItem(LEGEND_COLLAPSED_KEY) === '1';
+  } catch (error) {
+    collapsed = false;
+  }
+  setLegendCollapsed(collapsed, { persist: false });
+
+  legendPanel.querySelector('.legend-head')?.addEventListener('click', () => {
+    setLegendCollapsed(!legendPanel.classList.contains('collapsed'));
+  });
+
+  if (typeof ResizeObserver === 'function') {
+    const observer = new ResizeObserver(() => layoutMessageFeed());
+    observer.observe(legendPanel);
+  } else {
+    legendPanel.addEventListener('transitionend', (event) => {
+      if (event.propertyName === 'width') layoutMessageFeed();
+    });
+  }
+}
+initLegendDrawer();
 
 messageClear?.addEventListener('click', () => messageFeed.clear());
 
@@ -322,7 +391,7 @@ let map;
 let terrainAvailable = true;
 let demLabel = 'DEM';
 let simulationHour = 10;
-let simulationHoursPerSecond = 1;
+let simulationHoursPerSecond = 0.5;
 const simulationPauseSources = new Set();
 const previewLocationState = new WeakMap();
 const METERS_PER_DEGREE_LATITUDE = 111_320;
@@ -1055,6 +1124,14 @@ function updateSimulationUi() {
   if (simulationTimeLabel) {
     simulationTimeLabel.textContent = `${formatSimulationHour(hour)} · ${phaseLabelAtHour(hour)}`;
   }
+  if (headerSimDay) headerSimDay.textContent = `第 ${dayIndexAtHour(simulationHour)} 天`;
+  if (headerSimTime) headerSimTime.textContent = formatSimulationHour(hour);
+  if (headerSimPhase) {
+    const phase = phaseLabelAtHour(hour);
+    if (headerSim.dataset.phase !== phase) headerSim.dataset.phase = phase;
+    if (headerSimPhase.textContent !== phase) headerSimPhase.textContent = phase;
+  }
+  if (headerSimProgress) headerSimProgress.style.width = `${(simulationHour / SIMULATION_TOTAL_HOURS) * 100}%`;
   if (simulationToggle) simulationToggle.textContent = simulationRunning ? '暂停' : '继续';
   if (simulationTime) simulationTime.disabled = !simulationRunning;
 }
@@ -1507,6 +1584,22 @@ animate(0);
 // 全部由时间轴推导，不预置演示消息。
 messageFeed.clear();
 layoutMessageFeed();
+
+// 顶栏时钟：展示本机实时时间与日期。
+const clockTimeEl = document.querySelector('#clock-time');
+const clockDateEl = document.querySelector('#clock-date');
+const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+function updateHeaderClock() {
+  if (!clockTimeEl) return;
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  clockTimeEl.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  if (clockDateEl) {
+    clockDateEl.textContent = `${now.getFullYear()}.${pad(now.getMonth() + 1)}.${pad(now.getDate())} ${WEEKDAYS[now.getDay()]}`;
+  }
+}
+updateHeaderClock();
+setInterval(updateHeaderClock, 1000);
 
 window.__dayTwoOverflow = {
   schedule: overflowSchedule,
