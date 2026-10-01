@@ -1,6 +1,14 @@
 import { closeDatabase, databaseFile, db, seedFile } from './db.js'
+import {
+  ApiError,
+  actorScope,
+  cleanText,
+  localDateValue,
+  normalizeId,
+  numberOrNull,
+} from './shared.js'
 
-export { closeDatabase, databaseFile, seedFile }
+export { closeDatabase, databaseFile, seedFile, ApiError }
 
 export const sourceTypeOptions = [
   { value: 'purchased', label: '购入' },
@@ -14,11 +22,12 @@ export const statusOptions = [
   { value: 'offline', label: '离线' },
 ]
 
-export const pastureOptions = [
-  { id: 'P-A-01', name: '东沟草场' },
-  { id: 'P-A-02', name: '北坡草场' },
-  { id: 'P-A-03', name: '河谷草场' },
-]
+// Pasture units are owned by the `pastures` table so the API can report
+// carrying load. `pastureOptions` keeps its historical shape (id + name) for
+// /api/meta/options, whose output must not change.
+export function listPastureOptions() {
+  return db.prepare('SELECT id, name FROM pastures ORDER BY sort_order ASC, id ASC').all()
+}
 
 export const breedOptions = ['九龙牦牛', '麦洼牦牛', '藏绵羊', '高原山羊']
 
@@ -56,47 +65,12 @@ const baseSelect = `
   FROM livestock
 `
 
-export class ApiError extends Error {
-  constructor(statusCode, message, details = undefined) {
-    super(message)
-    this.name = 'ApiError'
-    this.statusCode = statusCode
-    this.details = details
-  }
-}
-
-function cleanText(value) {
-  return typeof value === 'string' ? value.trim() : ''
-}
-
-function numberOrNull(value) {
-  if (value === '' || value === null || value === undefined) return null
-  const number = Number(value)
-  return Number.isFinite(number) ? number : null
-}
-
-function normalizeId(value) {
-  return cleanText(value).toUpperCase().replace(/\s+/g, '-')
-}
-
-function actorScope(actor, column = 'user_id') {
-  if (!actor?.id || !['admin', 'operator'].includes(actor.role)) throw new ApiError(401, '请先登录')
-  return actor.role === 'admin' ? { sql: '', parameters: [] } : { sql: `${column} = ?`, parameters: [actor.id] }
-}
-
 function findRecord(id, actor) {
   const normalized = normalizeId(id)
   if (!normalized) return undefined
   const scope = actorScope(actor)
   const suffix = scope.sql ? ` AND ${scope.sql}` : ''
   return db.prepare(`${baseSelect} WHERE id = ?${suffix}`).get(normalized, ...scope.parameters) || undefined
-}
-
-function localDateValue(date) {
-  const year = date.getFullYear()
-  const month = `${date.getMonth() + 1}`.padStart(2, '0')
-  const day = `${date.getDate()}`.padStart(2, '0')
-  return `${year}-${month}-${day}`
 }
 
 function motherCutoffDate() {
@@ -121,7 +95,7 @@ function validatePayload(payload, editingId = undefined, actor) {
   const species = cleanText(payload.species) || '牦牛'
   const sex = cleanText(payload.sex)
   const pastureId = cleanText(payload.pastureId)
-  const pasture = pastureOptions.find((item) => item.id === pastureId)
+  const pasture = db.prepare('SELECT id, name FROM pastures WHERE id = ?').get(pastureId)
   const owner = cleanText(payload.owner) || '未分配'
   const motherId = normalizeId(payload.motherId)
   const purchaseDate = cleanText(payload.purchaseDate)

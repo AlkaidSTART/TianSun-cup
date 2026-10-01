@@ -6,7 +6,7 @@
   timingSafeEqual,
 } from 'node:crypto'
 import { db } from './db.js'
-import { ApiError } from './store.js'
+import { ApiError } from './shared.js'
 
 const passwordBytes = 64
 const passwordMinLength = 10

@@ -1,4 +1,4 @@
-﻿import { ApiError } from './store.js'
+﻿import { ApiError } from './shared.js'
 import { getUserForSession } from './auth-store.js'
 
 export const sessionCookieName = 'tiansun_session'

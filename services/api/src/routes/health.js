@@ -3,7 +3,7 @@ import path from 'node:path'
 import {
   breedOptions,
   databaseFile,
-  pastureOptions,
+  listPastureOptions,
   sourceTypeOptions,
   statusOptions,
 } from '../store.js'
@@ -31,7 +31,7 @@ router.get('/meta/options', (request, response) => {
     data: {
       sourceTypes: sourceTypeOptions,
       statuses: statusOptions,
-      pastures: pastureOptions,
+      pastures: listPastureOptions(),
       breeds: breedOptions,
       sexes: [
         { value: 'female', label: '母' },
