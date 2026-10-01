@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 const currentDir = path.dirname(fileURLToPath(import.meta.url))
 const seedFile = path.resolve(currentDir, '..', 'data', 'livestock.seed.json')
 
-// The H5/mobile client (apps/pasture-web) reads these fields directly. This
+// The H5/mobile client (apps/pasture-app) reads these fields directly. This
 // guards the front-end contract: renaming or nulling any of them would break
 // the dashboard map, the alert list and the consultation thread silently.
 test('contract: responses keep the fields the mobile client renders', async () => {

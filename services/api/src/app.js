@@ -18,10 +18,10 @@ const adminSourceDir = path.resolve(serviceDir, '../../apps/pasture-admin')
 const adminDistDir = path.join(adminSourceDir, 'dist')
 const adminDir = fs.existsSync(path.join(adminDistDir, 'index.html')) ? adminDistDir : adminSourceDir
 const threeDir = path.resolve(serviceDir, '../../apps/pasture-3d/dist')
-const webDistDir = path.resolve(serviceDir, '../../apps/pasture-web/dist')
-const webDir = fs.existsSync(path.join(webDistDir, 'build', 'h5', 'index.html'))
-  ? path.join(webDistDir, 'build', 'h5')
-  : webDistDir
+const appDistDir = path.resolve(serviceDir, '../../apps/pasture-app/dist')
+const appDir = fs.existsSync(path.join(appDistDir, 'build', 'h5', 'index.html'))
+  ? path.join(appDistDir, 'build', 'h5')
+  : appDistDir
 
 export const app = express()
 app.disable('x-powered-by')
@@ -60,7 +60,7 @@ app.use('/api', consultationRoutes)
 // The admin app keeps / as a compatibility entry while /admin/ stays canonical.
 app.use('/admin', express.static(adminDir, { index: 'index.html', fallthrough: true }))
 app.use('/3d', express.static(threeDir, { index: 'index.html', fallthrough: true }))
-app.use('/app', express.static(webDir, { index: 'index.html', fallthrough: true }))
+app.use('/app', express.static(appDir, { index: 'index.html', fallthrough: true }))
 app.use('/', express.static(adminDir, { index: 'index.html', fallthrough: true }))
 
 app.use((request, response, next) => {

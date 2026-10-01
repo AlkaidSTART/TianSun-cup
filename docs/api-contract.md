@@ -10,7 +10,7 @@
 | --- | --- | --- | --- |
 | Web 大屏 | `apps/pasture-3d` | **否** | 维持纯前端演示数据（分区几何、轨迹、事件流均由固定种子在浏览器内生成），后端不提供接口。本文第 12 章仅登记其数据结构作为未来对口参考。 |
 | 后台管理 | `apps/pasture-admin` | 是 | 只读概览 + 用户管理，全部为已实现接口。 |
-| H5 / 小程序 / App | `apps/pasture-web` | 是 | 已有「牲畜档案」「待办事项」为真实接口；「草场」「告警」「牲畜定位与指标」「问诊」本期由演示数据转为真实接口。 |
+| H5 / 小程序 / App | `apps/pasture-app` | 是 | 已有「牲畜档案」「待办事项」为真实接口；「草场」「告警」「牲畜定位与指标」「问诊」本期由演示数据转为真实接口。 |
 
 统一约束：三个前端都由同一个 Express 进程托管（`/admin/`、`/3d/`、`/app/`），API 基础路径 `/api`，数据格式 JSON（UTF-8），请求体上限 1 MiB。
 
@@ -666,7 +666,7 @@
 
 ## 10. 移动端页面 → 接口对照（验收用）
 
-下表「接入前」列为改造起点，「数据来源」列为当前已接入的接口。移动端四个页面的接入已完成（`apps/pasture-web/src/services/` 下新增 `pastureApi.ts`、`alertApi.ts`、`telemetryApi.ts`、`consultationApi.ts`）。
+下表「接入前」列为改造起点，「数据来源」列为当前已接入的接口。移动端四个页面的接入已完成（`apps/pasture-app/src/services/` 下新增 `pastureApi.ts`、`alertApi.ts`、`telemetryApi.ts`、`consultationApi.ts`）。
 
 | 页面 / 组件 | 接入前 | 当前数据来源 |
 | --- | --- | --- |
