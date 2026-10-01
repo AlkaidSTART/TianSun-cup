@@ -140,12 +140,13 @@ export async function listConsultations(query = {}, actor) {
 
 export async function getConsultation(idOrCode, actor) {
   const row = visibleOr404(idOrCode, actor)
-  return { ...summarize(row, '', listMessages(row.id).length), messages: listMessages(row.id) }
+  const messages = listMessages(row.id)
+  const last = messages[messages.length - 1]
+  return { ...summarize(row, last?.text || '', messages.length), messages }
 }
 
 export async function createConsultation(payload = {}, actor) {
-  const scope = actorScope(actor)
-  if (scope.sql) throw new ApiError(403, '只有管理员可以代牧户发起问诊')
+  if (!actor?.id || !['admin', 'operator'].includes(actor.role)) throw new ApiError(401, '请先登录')
 
   const symptoms = Array.isArray(payload.symptoms)
     ? payload.symptoms.map((item) => cleanText(item)).filter(Boolean)

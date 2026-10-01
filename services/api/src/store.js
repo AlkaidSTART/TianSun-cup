@@ -23,8 +23,8 @@ export const statusOptions = [
 ]
 
 // Pasture units are owned by the `pastures` table so the API can report
-// carrying load. `pastureOptions` keeps its historical shape (id + name) for
-// /api/meta/options, whose output must not change.
+// carrying load. This keeps the historical id + name shape that
+// /api/meta/options returns, whose output must not change.
 export function listPastureOptions() {
   return db.prepare('SELECT id, name FROM pastures ORDER BY sort_order ASC, id ASC').all()
 }

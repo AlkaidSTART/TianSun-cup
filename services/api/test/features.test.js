@@ -203,7 +203,7 @@ test('contract: pasture, alert, telemetry and consultation endpoints', async () 
 
     const badSample = await call('/api/telemetry', {
       method: 'POST', headers: adminHeaders,
-      body: JSON.stringify({ livestockId: newLivestockId, recordedAt: 'not-a-time', longitude: 999, latitude: 33 }),
+      body: JSON.stringify({ livestockId: newLivestockId, recordedAt: 'not-a-time', longitude: 999, latitude: 999 }),
     })
     assert.deepEqual(
       [badSample.status, badSample.body.message, Object.keys(badSample.body.details).sort()],
@@ -269,30 +269,54 @@ test('contract: pasture, alert, telemetry and consultation endpoints', async () 
     const notRolledBack = (await call('/api/livestock/' + newLivestockId, { headers: adminHeaders })).body.data
     assert.deepEqual([notRolledBack.temperature, notRolledBack.lastReportAt, notRolledBack.status], [39.1, '2026-10-01T07:30:00.000Z', 'normal'])
 
-    const latest = await call(`/api/telemetry/latest?status=abnormal`, { headers: adminHeaders })
-    assert.deepEqual(
-      [latest.body.data.length, latest.body.data[0].livestockId, typeof latest.body.data[0].staleMinutes],
-      [0, undefined, 'undefined'],
-    )
+    // The archive status follows the newest sample (normal), so filtering the
+    // live-position feed by "abnormal" excludes this animal again.
+    const noAbnormalLive = await call('/api/telemetry/latest?status=abnormal', { headers: adminHeaders })
+    assert.equal(noAbnormalLive.body.data.length, 0)
+
     const latestAll = await call('/api/telemetry/latest', { headers: adminHeaders })
     assert.equal(latestAll.body.data.length, 1, 'only animals with samples appear')
     assert.deepEqual(
-      [latestAll.body.data[0].livestockId, latestAll.body.data[0].pastureId, latestAll.body.data[0].statusLabel],
-      [newLivestockId, 'P-A-01', '正常'],
+      [latestAll.body.data[0].livestockId, latestAll.body.data[0].pastureId, latestAll.body.data[0].statusLabel, typeof latestAll.body.data[0].staleMinutes],
+      [newLivestockId, 'P-A-01', '正常', 'number'],
+    )
+    const latestByPasture = await call('/api/telemetry/latest?pastureId=P-A-02', { headers: adminHeaders })
+    assert.equal(latestByPasture.body.data.length, 0)
+
+    // Explicit window keeps this assertion independent of the wall clock.
+    const fullWindow = 'from=2026-10-01T00:00:00.000Z&to=2026-10-01T08:00:00.000Z'
+    const historyWindow = await call(`/api/telemetry/${newLivestockId}?${fullWindow}`, { headers: adminHeaders })
+    assert.deepEqual(
+      historyWindow.body.data.map((sample) => sample.recordedAt),
+      ['2026-10-01T05:00:00.000Z', '2026-10-01T06:30:00.000Z', '2026-10-01T07:30:00.000Z'],
+      'history is ascending by recordedAt',
     )
 
-    const historyWindow = await call(`/api/telemetry/${newLivestockId}`, { headers: adminHeaders })
-    assert.equal(historyWindow.body.data.length, 3, 'default window is the last 24 hours')
-    assert.ok(historyWindow.body.data[0].recordedAt <= historyWindow.body.data[1].recordedAt, 'history is ascending')
+    // The default window is the last 24 hours and never includes future timestamps.
+    const nowIso = new Date().toISOString()
+    const defaultWindow = await call(`/api/telemetry/${newLivestockId}`, { headers: adminHeaders })
+    assert.ok(defaultWindow.body.data.length > 0)
+    assert.equal(defaultWindow.body.data.every((sample) => sample.recordedAt <= nowIso), true)
+    assert.equal(defaultWindow.body.data.every((sample) => sample.recordedAt >= new Date(Date.now() - 86_400_000).toISOString()), true)
 
-    const metricOnly = await call(`/api/telemetry/${newLivestockId}?metric=temperature`, { headers: adminHeaders })
+    const metricOnly = await call(`/api/telemetry/${newLivestockId}?${fullWindow}&metric=temperature`, { headers: adminHeaders })
     assert.deepEqual(Object.keys(metricOnly.body.data[0]).sort(), ['recordedAt', 'temperature'])
+
+    const limited = await call(`/api/telemetry/${newLivestockId}?${fullWindow}&limit=2`, { headers: adminHeaders })
+    assert.deepEqual(
+      limited.body.data.map((sample) => sample.recordedAt),
+      ['2026-10-01T06:30:00.000Z', '2026-10-01T07:30:00.000Z'],
+      'limit keeps the newest samples and still returns them ascending',
+    )
 
     const badMetric = await call(`/api/telemetry/${newLivestockId}?metric=weight`, { headers: adminHeaders })
     assert.deepEqual([badMetric.status, badMetric.body.message], [400, '不支持该指标'])
 
     const wideWindow = await call(`/api/telemetry/${newLivestockId}?from=2026-01-01T00:00:00.000Z&to=2026-06-01T00:00:00.000Z`, { headers: adminHeaders })
     assert.deepEqual([wideWindow.status, wideWindow.body.message], [400, '查询区间不能超过 31 天'])
+
+    const backwardsWindow = await call(`/api/telemetry/${newLivestockId}?from=2026-10-02T00:00:00.000Z&to=2026-10-01T00:00:00.000Z`, { headers: adminHeaders })
+    assert.deepEqual([backwardsWindow.status, backwardsWindow.body.message], [400, '查询起始时间不能晚于结束时间'])
 
     const telemetryStats = await call('/api/telemetry/summary', { headers: adminHeaders })
     assert.deepEqual(

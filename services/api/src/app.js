@@ -47,9 +47,10 @@ app.use('/api', healthRoutes)
 app.use('/api', authRoutes)
 app.use('/api', livestockRoutes)
 app.use('/api', todoRoutes)
-// These four routers own disjoint path prefixes (pastures, alerts, telemetry,
-// consultations), so mounting them unauthenticated is safe: an unrelated path
-// does not reach any of their route handlers.
+// These four own disjoint path prefixes (pastures, alerts, telemetry,
+// consultations) and authenticate inside each route rather than via
+// router.use, so a request to an unrelated /api path still falls through to the
+// JSON 404 below instead of being rejected with 401.
 app.use('/api', pastureRoutes)
 app.use('/api', alertRoutes)
 app.use('/api', telemetryRoutes)
