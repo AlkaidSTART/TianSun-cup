@@ -666,29 +666,37 @@
 
 ## 10. 移动端页面 → 接口对照（验收用）
 
-| 页面 / 组件 | 现状 | 本期数据来源 |
+下表「接入前」列为改造起点，「数据来源」列为当前已接入的接口。移动端四个页面的接入已完成（`apps/pasture-web/src/services/` 下新增 `pastureApi.ts`、`alertApi.ts`、`telemetryApi.ts`、`consultationApi.ts`）。
+
+| 页面 / 组件 | 接入前 | 当前数据来源 |
 | --- | --- | --- |
-| `DashboardView.vue` KPI 卡（在线牲畜 / 健康状态 / 今日告警） | 硬编码 128 / 94.5% / 03 | `GET /api/telemetry/summary`、`GET /api/alerts/summary` |
+| `DashboardView.vue` KPI 卡（在线牲畜 / 健康状态 / 今日告警） | 硬编码 128 / 94.5% / 03 | `GET /api/telemetry/summary` |
 | 同上「草场压力指数」 | 硬编码 0.75 | `GET /api/pastures/carrying-capacity` |
-| 同上地图点位 `dots[]` | 硬编码 10 条 | `GET /api/telemetry/latest` |
-| 同上抽屉（步数 / 心率 / 反刍） | 硬编码 2,340 / 62 / 42 | `GET /api/telemetry/latest` 对应项 |
+| 同上地图点位 | 硬编码 10 条 | `GET /api/telemetry/latest`（取前 10 条投影到固定 10 个槽位，保持版式稳定） |
+| 同上抽屉（体温 / 步数 / 心率 / 反刍） | 硬编码 2,340 / 62 / 42 | `GET /api/telemetry/latest` 对应项 |
 | 同上「需要立即关注」 | 硬编码 3 条 | `GET /api/alerts?status=open&pageSize=3` |
 | 同上「今日健康分布」 | 硬编码 121 / 5 / 2 | `GET /api/telemetry/summary` |
 | 同上「草场分区」表 | 硬编码 3 行 | `GET /api/pastures` |
-| 同上「近 7 日草场压力」 | 硬编码柱高 | `GET /api/pastures/pressure?days=7` |
-| `AlertsView.vue` 列表与筛选 | 硬编码 3 条 | `GET /api/alerts` |
+| 同上「近 7 日草场压力」 | 硬编码柱高 | `GET /api/pastures/pressure?days=7`（首次上线当天只有 1 个快照，柱子会随天数增长） |
+| `AlertsView.vue` 列表与筛选 | 硬编码 3 条 | `GET /api/alerts`（`severity` 映射四个筛选按钮） |
 | 同上「处理进度」 | 硬编码 67% | `GET /api/alerts/summary` |
 | 同上「告警规则」表 | 硬编码 | `GET /api/alerts/rules` |
 | 同上「标记已处理」 | toast | `PATCH /api/alerts/:id/handle` |
-| `PastureView.vue` 全页 | 硬编码 3 个分区 | `GET /api/pastures`；详情 `GET /api/pastures/:id` |
-| `LivestockView.vue` 品种/草场下拉 | 本地硬编码 | `GET /api/meta/options` |
+| `PastureView.vue` 全页 | 硬编码 3 个分区 | `GET /api/pastures`；点选分区后 `GET /api/pastures/:id` 取草层指标 |
+| `LivestockView.vue` 品种/草场下拉 | 本地硬编码 | 未改（见下「遗留」） |
 | 同上 CSV 导出 | 客户端拼接 | 保持不变（本地导出，不新增后端接口） |
 | `ProfileView.vue` 待办 | 已接 | `GET/PATCH/POST/DELETE /api/todos` |
-| 同上「示范区信息」 | 硬编码只读 | 本期保持硬编码（静态宣传信息，不入库） |
-| 同上通知 / 服务 / 安全行 | 硬编码 | 本期保持硬编码，不新增通知接口 |
+| 同上「示范区信息」 | 硬编码只读 | 保持硬编码（静态宣传信息，不入库） |
+| 同上通知 / 服务 / 安全行 | 硬编码 | 保持硬编码，不新增通知接口 |
 | `ConsultationView.vue` 提交问诊 | toast | `POST /api/consultations` |
-| 同上问诊记录 | 硬编码 2 条 | `GET /api/consultations` |
-| 同上聊天 | 本地假回复 | `GET /api/consultations/:id` + `POST /api/consultations/:id/messages` |
+| 同上问诊记录 | 硬编码 2 条 | `GET /api/consultations?days=30` |
+| 同上聊天 | 本地 `setTimeout` 假回复 | `GET /api/consultations/:id` + `POST /api/consultations/:id/messages`；假回复已删除，改为 10 秒轮询直到 `status != 'open'` |
+
+### 遗留（本轮未做，需另行确认）
+
+- `LivestockView.vue` 仍自带品种与草场选项数组，未改为消费 `GET /api/meta/options`；`livestockApi.stats()` 仍未被任何页面调用。
+- 移动端没有上报入口：`POST /api/telemetry` 已实现但只有设备/脚本会调，`telemetryApi.report()` 目前是预留。
+- `ConsultationView.vue` 无法选择关联牲畜，只提交自由文本耳标号；后端 `livestockId` 必须是当前账号名下的档案，输入他人耳标号会返回 `400`。
 
 后台管理端与本文档的差异：后台目前**不调用**任何写接口（新增/编辑/删除牲畜）。本期不改后台，`GET /api/livestock` 等只读接口继续满足其需求；后台错误文案中「请在 text_backend 目录运行 npm start 后重试」已过期，属前端文案修正，不在本契约范围。
 

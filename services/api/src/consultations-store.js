@@ -81,7 +81,9 @@ function findConsultation(idOrCode, actor) {
 function visibleOr404(idOrCode, actor) {
   const row = findConsultation(idOrCode, actor)
   if (!row) throw new ApiError(404, '未找到该问诊')
-  return row
+  // Re-read through consultationSelect so detail and list responses expose the
+  // same camelCase fields; findConsultation's raw row is snake_case on purpose.
+  return db.prepare(`${consultationSelect} WHERE id = ?`).get(row.id)
 }
 
 function nextCode(now = new Date()) {

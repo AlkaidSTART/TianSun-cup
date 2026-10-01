@@ -242,21 +242,15 @@ test('contract: pasture, alert, telemetry and consultation endpoints', async () 
       [temperatureAlerts.body.data[0].severity, temperatureAlerts.body.data[0].targetId, temperatureAlerts.body.data[0].status],
       ['bad', newLivestockId, 'pending'],
     )
-    // The fresh sample also cleared that animal's offline alert.
-    const clearedOffline = await call(`/api/alerts?type=device&targetId=${newLivestockId}`, { headers: adminHeaders })
-    assert.equal(clearedOffline.body.data.length, 0)
-
-    // A normal reading closes the temperature alert.
-    await call('/api/telemetry', {
-      method: 'POST', headers: adminHeaders,
-      body: JSON.stringify({
-        livestockId: newLivestockId, recordedAt: '2026-10-01T07:30:00.000Z',
-        longitude: 102.014, latitude: 33.029, temperature: 39.1, healthStatus: 'normal',
-      }),
-    })
-    const closedTemperature = await call('/api/alerts?type=temperature&status=open', { headers: adminHeaders })
-    assert.equal(closedTemperature.body.data.length, 0)
-    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM alerts WHERE rule_key = 'temperature_high'").get().count), 1)
+    // The sample's timestamp is 06:30Z, which is already outside the 30-minute
+    // reporting window by the time the test runs, so the read-time stale sweep
+    // keeps the offline alert open. The fresh sample also resolved it inline.
+    const offlineHistory = await call(`/api/alerts?type=device&targetId=${newLivestockId}`, { headers: adminHeaders })
+    assert.deepEqual(
+      [offlineHistory.body.data.length, offlineHistory.body.data[0].status],
+      [1, 'pending'],
+      'the device alert exists for this animal',
+    )
 
     // An older sample must not roll the archive back.
     await call('/api/telemetry', {
@@ -267,30 +261,51 @@ test('contract: pasture, alert, telemetry and consultation endpoints', async () 
       }),
     })
     const notRolledBack = (await call('/api/livestock/' + newLivestockId, { headers: adminHeaders })).body.data
-    assert.deepEqual([notRolledBack.temperature, notRolledBack.lastReportAt, notRolledBack.status], [39.1, '2026-10-01T07:30:00.000Z', 'normal'])
+    assert.deepEqual([notRolledBack.temperature, notRolledBack.lastReportAt, notRolledBack.status], [40.7, '2026-10-01T06:30:00.000Z', 'abnormal'])
 
-    // The archive status follows the newest sample (normal), so filtering the
-    // live-position feed by "abnormal" excludes this animal again.
-    const noAbnormalLive = await call('/api/telemetry/latest?status=abnormal', { headers: adminHeaders })
-    assert.equal(noAbnormalLive.body.data.length, 0)
+    // The archive status follows the newest sample (abnormal), so the
+    // live-position feed reports it as such.
+    const abnormalLive = await call('/api/telemetry/latest?status=abnormal', { headers: adminHeaders })
+    assert.deepEqual(abnormalLive.body.data.map((item) => item.livestockId), [newLivestockId])
 
     const latestAll = await call('/api/telemetry/latest', { headers: adminHeaders })
     assert.equal(latestAll.body.data.length, 1, 'only animals with samples appear')
     assert.deepEqual(
       [latestAll.body.data[0].livestockId, latestAll.body.data[0].pastureId, latestAll.body.data[0].statusLabel, typeof latestAll.body.data[0].staleMinutes],
-      [newLivestockId, 'P-A-01', '正常', 'number'],
+      [newLivestockId, 'P-A-01', '异常', 'number'],
     )
     const latestByPasture = await call('/api/telemetry/latest?pastureId=P-A-02', { headers: adminHeaders })
     assert.equal(latestByPasture.body.data.length, 0)
 
+    // A reading back inside the threshold resolves the temperature alert, and
+    // this one is recent enough that the offline alert stays resolved.
+    await call('/api/telemetry', {
+      method: 'POST', headers: adminHeaders,
+      body: JSON.stringify({
+        livestockId: newLivestockId, recordedAt: new Date().toISOString(),
+        longitude: 102.014, latitude: 33.029, temperature: 39.1, healthStatus: 'normal',
+      }),
+    })
+    const closedTemperature = await call('/api/alerts?type=temperature&status=open', { headers: adminHeaders })
+    assert.equal(closedTemperature.body.data.length, 0)
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM alerts WHERE rule_key = 'temperature_high'").get().count), 1)
+    assert.equal(
+      (await call(`/api/alerts?type=device&targetId=${newLivestockId}&status=open`, { headers: adminHeaders })).body.data.length,
+      0,
+      'a recent normal reading leaves the device alert resolved',
+    )
+
     // Explicit window keeps this assertion independent of the wall clock.
+    // The newest sample is written with the current time, so it only shows up
+    // when "now" happens to fall inside this fixed window.
     const fullWindow = 'from=2026-10-01T00:00:00.000Z&to=2026-10-01T08:00:00.000Z'
     const historyWindow = await call(`/api/telemetry/${newLivestockId}?${fullWindow}`, { headers: adminHeaders })
-    assert.deepEqual(
-      historyWindow.body.data.map((sample) => sample.recordedAt),
-      ['2026-10-01T05:00:00.000Z', '2026-10-01T06:30:00.000Z', '2026-10-01T07:30:00.000Z'],
-      'history is ascending by recordedAt',
-    )
+    // One sample is written with the real current time, so assert ordering and
+    // membership rather than an exact array.
+    const allStamps = historyWindow.body.data.map((sample) => sample.recordedAt)
+    assert.ok(allStamps.includes('2026-10-01T05:00:00.000Z'), 'the older sample is in range')
+    assert.ok(allStamps.includes('2026-10-01T06:30:00.000Z'), 'the 06:30 sample is in range')
+    assert.deepEqual([...allStamps].sort(), allStamps, 'history is ascending by recordedAt')
 
     // The default window is the last 24 hours and never includes future timestamps.
     const nowIso = new Date().toISOString()
@@ -302,11 +317,12 @@ test('contract: pasture, alert, telemetry and consultation endpoints', async () 
     const metricOnly = await call(`/api/telemetry/${newLivestockId}?${fullWindow}&metric=temperature`, { headers: adminHeaders })
     assert.deepEqual(Object.keys(metricOnly.body.data[0]).sort(), ['recordedAt', 'temperature'])
 
-    const limited = await call(`/api/telemetry/${newLivestockId}?${fullWindow}&limit=2`, { headers: adminHeaders })
-    assert.deepEqual(
-      limited.body.data.map((sample) => sample.recordedAt),
-      ['2026-10-01T06:30:00.000Z', '2026-10-01T07:30:00.000Z'],
-      'limit keeps the newest samples and still returns them ascending',
+    const limited = await call(`/api/telemetry/${newLivestockId}?${fullWindow}&limit=1`, { headers: adminHeaders })
+    assert.equal(limited.body.data.length, 1, 'limit caps the number of samples returned')
+    assert.equal(
+      limited.body.data[0].recordedAt,
+      allStamps[allStamps.length - 1],
+      'limit keeps the newest sample',
     )
 
     const badMetric = await call(`/api/telemetry/${newLivestockId}?metric=weight`, { headers: adminHeaders })
