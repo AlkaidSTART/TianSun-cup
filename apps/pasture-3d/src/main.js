@@ -78,6 +78,7 @@ const headerSimDay = document.querySelector('#header-sim-day');
 const headerSimTime = document.querySelector('#header-sim-time');
 const headerSimPhase = document.querySelector('#header-sim-phase');
 const headerSimProgress = document.querySelector('#header-sim-progress');
+const topbar = document.querySelector('.topbar');
 const messageList = document.querySelector('#message-list');
 const messageCount = document.querySelector('#message-count');
 const messageClear = document.querySelector('#message-clear');
@@ -1132,6 +1133,10 @@ function updateSimulationUi() {
     if (headerSimPhase.textContent !== phase) headerSimPhase.textContent = phase;
   }
   if (headerSimProgress) headerSimProgress.style.width = `${(simulationHour / SIMULATION_TOTAL_HOURS) * 100}%`;
+  if (topbar) {
+    const theme = isNightHour(hour) ? 'night' : 'day';
+    if (topbar.dataset.timeTheme !== theme) topbar.dataset.timeTheme = theme;
+  }
   if (simulationToggle) simulationToggle.textContent = simulationRunning ? '暂停' : '继续';
   if (simulationTime) simulationTime.disabled = !simulationRunning;
 }
