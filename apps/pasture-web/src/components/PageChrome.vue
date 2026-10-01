@@ -16,7 +16,7 @@ function navigate(view: string) {
 <template>
   <div class="app">
     <header class="topbar">
-      <button class="brand" aria-label="返回总览" @click="navigate('dashboard')"><span class="brand-mark">牧</span><span class="brand-title">牧场智控<span class="brand-sub">· 阿坝示范区</span></span></button>
+      <button class="brand" aria-label="返回总览" @click="navigate('dashboard')"><span class="brand-mark">牧</span><span class="brand-title">数牧空间<span class="brand-sub">· 阿坝示范区</span></span></button>
       <div class="top-actions"><button v-if="refresh" class="icon-btn" aria-label="刷新数据" @click="emit('refresh')"><AppIcon name="refresh" :size="17" /></button><button v-if="bell" class="icon-btn" aria-label="查看通知" @click="emit('bell')"><AppIcon name="bell" :size="17" /></button><span class="avatar">{{ avatarText }}</span></div>
     </header>
     <slot />

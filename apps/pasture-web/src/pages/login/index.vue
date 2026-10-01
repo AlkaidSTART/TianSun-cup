@@ -73,7 +73,7 @@ async function setPassword() {
 <template>
   <view class="login-screen">
     <view class="login-card">
-      <view class="login-brand"><view class="login-mark">牧</view><view><text class="login-title">牧场智控</text><text class="login-subtitle">阿坝示范区 · 账号登录</text></view></view>
+      <view class="login-brand"><view class="login-mark">牧</view><view><text class="login-title">数牧空间</text><text class="login-subtitle">阿坝示范区 · 账号登录</text></view></view>
       <view v-if="!changingPassword">
         <view class="login-heading">欢迎回来</view>
         <text class="login-description">请使用管理员发放的账号和密码登录</text>

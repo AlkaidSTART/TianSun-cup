@@ -1,5 +1,5 @@
 {
-    "name" : "牧场智控",
+    "name" : "数牧空间",
     "appid" : "__UNI__D3B49B0",
     "description" : "阿坝高原智慧放牧示范应用",
     "versionName" : "1.0.0",
@@ -9,7 +9,7 @@
         "enable" : false
     },
     "h5" : {
-        "title" : "牧场智控",
+        "title" : "数牧空间",
         "router" : {
             "mode" : "hash"
         }

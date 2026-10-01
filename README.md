@@ -1,4 +1,6 @@
-# TianSun-cup 智慧放牧系统
+# 数牧空间
+
+> 仓储代号 `TianSun-cup`，产品名统一为「数牧空间」。
 
 本仓库采用 npm workspaces 管理前端和统一 API 服务：
 

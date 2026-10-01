@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="阿坝智慧放牧三维监测平台" />
-    <title>智慧放牧 3D 监测</title>
+    <meta name="description" content="数牧空间 · 阿坝三维放牧监测平台" />
+    <title>数牧空间 · 三维监测平台</title>
   </head>
   <body>
     <main id="app-shell">
@@ -19,42 +19,25 @@
           <div class="brand">
             <span class="brand-mark" aria-hidden="true">
               <span class="brand-mark-ring"></span>
-              <svg class="brand-mark-svg" viewBox="3.4 2.6 26.6 25.8" focusable="false" role="img" aria-label="智慧放牧">
+              <svg class="brand-mark-svg" viewBox="0 0 32 32" focusable="false" role="img" aria-label="数牧空间">
                 <defs>
-                  <linearGradient id="brandGlyphGrad" x1="6" y1="7" x2="25" y2="27" gradientUnits="userSpaceOnUse">
-                    <stop offset="0" stop-color="#ecfff8" />
-                    <stop offset=".45" stop-color="#7bf0c4" />
-                    <stop offset="1" stop-color="#2cb587" />
-                  </linearGradient>
-                  <linearGradient id="brandGlyphSoft" x1="7" y1="13" x2="23" y2="25" gradientUnits="userSpaceOnUse">
-                    <stop offset="0" stop-color="#d6fff0" />
-                    <stop offset="1" stop-color="#57dfae" />
+                  <linearGradient id="brandGlyphBright" x1="6" y1="5" x2="26" y2="27" gradientUnits="userSpaceOnUse">
+                    <stop offset="0" stop-color="#f7fffc" />
+                    <stop offset=".46" stop-color="#8df1cb" />
+                    <stop offset="1" stop-color="#2bb98c" />
                   </linearGradient>
                 </defs>
-                <g fill="url(#brandGlyphGrad)">
-                  <circle cx="13.6" cy="19.4" r="3.4" />
-                  <circle cx="16.3" cy="18.3" r="4.5" />
-                  <circle cx="19.9" cy="16.7" r="4.2" />
-                  <circle cx="21.5" cy="19.7" r="3.5" />
-                  <circle cx="17.5" cy="20.7" r="3.8" />
+                <!-- 数牧空间：2×2 牧格矩阵，右下为活跃数据格 -->
+                <g fill="none" stroke="url(#brandGlyphBright)" stroke-width="1.7">
+                  <rect x="5.6" y="5.6" width="9.1" height="9.1" rx="2.6" opacity=".55" />
+                  <rect x="17.3" y="5.6" width="9.1" height="9.1" rx="2.6" opacity=".55" />
+                  <rect x="5.6" y="17.3" width="9.1" height="9.1" rx="2.6" opacity=".55" />
                 </g>
-                <ellipse cx="12.9" cy="13.4" rx="2.15" ry="1" transform="rotate(-27 12.9 13.4)" fill="url(#brandGlyphSoft)" />
-                <ellipse cx="10.5" cy="16.4" rx="3.25" ry="2.85" transform="rotate(-12 10.5 16.4)" fill="url(#brandGlyphSoft)" />
-                <ellipse cx="7.45" cy="17.45" rx="1.7" ry="1.32" transform="rotate(-16 7.45 17.45)" fill="url(#brandGlyphSoft)" />
-                <circle cx="9.35" cy="15.15" r=".8" fill="#04261b" />
-                <g fill="none" stroke="url(#brandGlyphGrad)" stroke-width="1.75" stroke-linecap="round">
-                  <path d="M15 23.7v2.9" />
-                  <path d="M19.8 23.5v3.1" />
-                </g>
-                <circle cx="22.5" cy="11.4" r="1.1" fill="url(#brandGlyphGrad)" />
-                <g fill="none" stroke="url(#brandGlyphGrad)" stroke-width="1.55" stroke-linecap="round" opacity=".9">
-                  <path d="M22.06 7.22A4.2 4.2 0 0 1 26.39 9.83" />
-                  <path d="M21.77 4.44A7 7 0 0 1 28.99 8.78" opacity=".62" />
-                </g>
+                <rect x="17.3" y="17.3" width="9.1" height="9.1" rx="2.6" fill="url(#brandGlyphBright)" />
               </svg>
             </span>
             <div class="brand-text">
-              <h1>智慧放牧</h1>
+              <h1>数牧空间</h1>
               <p><i class="brand-dot" aria-hidden="true"></i>阿坝草地监测中心</p>
             </div>
           </div>
@@ -74,8 +57,8 @@
         <div class="topbar-title" aria-hidden="true">
           <span class="title-line title-line-left"></span>
           <div class="title-stack">
-            <strong>阿坝智慧放牧三维监测平台</strong>
-            <em>SMART GRAZING · 3D MONITORING</em>
+            <strong>数牧空间 · 三维监测平台</strong>
+            <em>SHUMU SPACE · 3D MONITORING</em>
           </div>
           <span class="title-line title-line-right"></span>
         </div>
@@ -156,9 +139,60 @@
       <div id="scene-tooltip" class="scene-tooltip" role="status" hidden></div>
 
       <div id="loading-panel" class="loading-panel">
-        <span class="loader"></span>
-        <strong id="loading-title">正在连接天地图</strong>
-        <span id="loading-message">准备卫星影像与地形高程...</span>
+        <div class="lp-grid" aria-hidden="true"></div>
+        <div class="lp-scan" aria-hidden="true"></div>
+        <div class="lp-stage">
+          <div class="lp-emblem" aria-hidden="true">
+            <span class="lp-halo"></span>
+            <span class="lp-ring lp-ring--outer"></span>
+            <span class="lp-ring lp-ring--mid"></span>
+            <svg class="lp-glyph" viewBox="3.4 2.6 26.6 25.8" focusable="false" aria-hidden="true">
+              <defs>
+                <linearGradient id="lpGlyphGrad" x1="6" y1="7" x2="25" y2="27" gradientUnits="userSpaceOnUse">
+                  <stop offset="0" stop-color="#ecfff8" />
+                  <stop offset=".45" stop-color="#7bf0c4" />
+                  <stop offset="1" stop-color="#2cb587" />
+                </linearGradient>
+                <linearGradient id="lpGlyphSoft" x1="7" y1="13" x2="23" y2="25" gradientUnits="userSpaceOnUse">
+                  <stop offset="0" stop-color="#d6fff0" />
+                  <stop offset="1" stop-color="#57dfae" />
+                </linearGradient>
+              </defs>
+              <g fill="url(#lpGlyphGrad)">
+                <circle cx="13.6" cy="19.4" r="3.4" />
+                <circle cx="16.3" cy="18.3" r="4.5" />
+                <circle cx="19.9" cy="16.7" r="4.2" />
+                <circle cx="21.5" cy="19.7" r="3.5" />
+                <circle cx="17.5" cy="20.7" r="3.8" />
+              </g>
+              <ellipse cx="12.9" cy="13.4" rx="2.15" ry="1" transform="rotate(-27 12.9 13.4)" fill="url(#lpGlyphSoft)" />
+              <ellipse cx="10.5" cy="16.4" rx="3.25" ry="2.85" transform="rotate(-12 10.5 16.4)" fill="url(#lpGlyphSoft)" />
+              <ellipse cx="7.45" cy="17.45" rx="1.7" ry="1.32" transform="rotate(-16 7.45 17.45)" fill="url(#lpGlyphSoft)" />
+              <circle cx="9.35" cy="15.15" r=".8" fill="#04261b" />
+              <g fill="none" stroke="url(#lpGlyphGrad)" stroke-width="1.75" stroke-linecap="round">
+                <path d="M15 23.7v2.9" />
+                <path d="M19.8 23.5v3.1" />
+              </g>
+              <circle cx="22.5" cy="11.4" r="1.1" fill="url(#lpGlyphGrad)" />
+              <g fill="none" stroke="url(#lpGlyphGrad)" stroke-width="1.55" stroke-linecap="round" opacity=".9">
+                <path d="M22.06 7.22A4.2 4.2 0 0 1 26.39 9.83" />
+                <path d="M21.77 4.44A7 7 0 0 1 28.99 8.78" opacity=".62" />
+              </g>
+            </svg>
+            <span class="lp-ring lp-ring--inner"></span>
+          </div>
+          <div class="lp-brand">
+            <h1 class="lp-name">数牧空间</h1>
+            <p class="lp-tag">SHUMU SPACE · 3D MONITORING</p>
+          </div>
+        </div>
+        <div class="lp-status">
+          <span class="loader" aria-hidden="true"></span>
+          <strong id="loading-title">正在连接天地图</strong>
+          <span id="loading-message">准备卫星影像与地形高程...</span>
+        </div>
+        <div class="lp-progress" aria-hidden="true"><span class="lp-bar"></span></div>
+        <div class="lp-particles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
       </div>
 
       <div id="prohibited-modal" class="prohibited-modal" hidden>
