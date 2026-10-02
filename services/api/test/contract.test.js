@@ -276,7 +276,7 @@ test('contract: implemented endpoints keep their documented shape', async () => 
       method: 'POST', headers: { Authorization: `Bearer ${operatorToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ currentPassword: 'HerderPass123!', newPassword: 'short' }),
     })
-    assert.deepEqual([shortPassword.status, shortPassword.body.details.newPassword], [400, '密码长度需为 10–128 个字符'])
+    assert.deepEqual([shortPassword.status, shortPassword.body.details.newPassword], [400, '密码长度需为 6–128 个字符'])
 
     const rotated = await call('/api/auth/password', {
       method: 'POST', headers: { Authorization: `Bearer ${operatorToken}`, 'Content-Type': 'application/json' },

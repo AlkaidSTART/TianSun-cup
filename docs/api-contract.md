@@ -159,7 +159,7 @@
 
 ### `POST /api/auth/login`（公开）
 
-请求体 `{ "username", "password" }`。用户名 3–32 位字母/数字/`._-`，不区分大小写；密码 10–128 字符。
+请求体 `{ "username", "password" }`。用户名 3–32 位字母/数字/`._-`，不区分大小写；密码 6–128 字符。
 
 - 浏览器：设置 `Set-Cookie: tiansun_session=...; Path=/api; HttpOnly; SameSite=Strict`，响应 `data` 为 `{ expiresAt, user }`，**不返回令牌**。
 - 小程序 / App（带 `X-Client-Platform`）：响应 `data` 为 `{ token, expiresAt, user }`。

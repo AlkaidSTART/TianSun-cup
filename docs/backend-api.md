@@ -255,6 +255,6 @@ Express app 在挂载静态资源 fallback 前挂载现有 API 路由；统一�
 ## 登录与归属规则（新增）
 
 - 除 `/api/health`、`/api/meta/options` 和 `/api/auth/login` 外，上表中的业务和用户接口均要求认证：H5/管理后台使用同源 `HttpOnly; SameSite=Strict` Cookie；微信小程序与原生 App 分别发送 `X-Client-Platform: mp-weixin`、`X-Client-Platform: app-plus`，并用 `Authorization: Bearer <token>` 访问后续接口。浏览器登录响应不返回令牌，小程序与原生 App 登录响应返回令牌。浏览器用 Cookie 发起的 POST/PATCH/PUT/DELETE 还需 `X-Requested-With: TianSun` 请求头，以降低跨站请求伪造风险。会话默认有效 7 天，服务端仅在 SQLite 的 `auth_sessions` 表保存令牌哈希。退出、停用账号、重置或修改密码都会撤销原会话。首次登录需修改管理员发放的初始密码，完成前不能调用业务接口。
-- 用户名（3–32 位字母/数字/`._-`）不区分大小写；密码 10–128 字符，仅保存独立盐值及 `scrypt` 哈希。浏览器本地只保留非敏感的登录提示标记，小程序与原生 App 本地保存会话令牌；均不保存密码，正式环境须使用 HTTPS。登录错误按“来源地址 + 用户名”限制为 15 分钟内最多 5 次。
+- 用户名（3–32 位字母/数字/`._-`）不区分大小写；密码 6–128 字符，仅保存独立盐值及 `scrypt` 哈希。浏览器本地只保留非敏感的登录提示标记，小程序与原生 App 本地保存会话令牌；均不保存密码，正式环境须使用 HTTPS。登录错误按“来源地址 + 用户名”限制为 15 分钟内最多 5 次。
 - `users` 表保存账号、显示名、角色、启用状态；`livestock.user_id` 与 `todos.user_id` 是认证账号归属，不同于 `livestock.owner`（牧户）。普通用户只能读取/修改自己的记录；管理员可以访问全部。客户端提交的 `userId` 不参与创建归属，记录创建时自动归当前登录用户。非本人记录对普通用户返回 404。
 - 首位管理员通过一次性 `auth:bootstrap` CLI 创建。旧表的现有数据和首次种子数据都归该管理员，迁移不删除记录；无管理员时业务接口无法登录，需先完成初始化。

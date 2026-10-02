@@ -85,7 +85,7 @@ async function setPassword() {
         <view class="login-heading">设置新密码</view>
         <text class="login-description">首次登录或密码重置后，请修改初始密码</text>
         <view class="login-field"><text>当前密码</text><input v-model="currentPassword" type="password" placeholder="输入初始密码" /></view>
-        <view class="login-field"><text>新密码</text><input v-model="newPassword" type="password" placeholder="10–128 个字符" /></view>
+        <view class="login-field"><text>新密码</text><input v-model="newPassword" type="password" placeholder="6–128 个字符" /></view>
         <view class="login-field"><text>确认新密码</text><input v-model="confirmPassword" type="password" placeholder="再次输入新密码" @confirm="setPassword" /></view>
         <button class="login-submit" type="button" :disabled="busy" @click="setPassword">{{ busy ? '保存中…' : '修改密码并继续' }}</button>
       </view>

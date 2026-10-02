@@ -53,7 +53,7 @@ try {
   const username = argument('--username') || await reader.question('管理员登录账号：')
   const displayName = argument('--display-name') || await reader.question('管理员显示名称：')
   reader.close()
-  const password = await secretQuestion('初始密码（10–128 字符，不回显）：')
+  const password = await secretQuestion('初始密码（6–128 字符，不回显）：')
   const confirmation = await secretQuestion('再次输入密码：')
   if (password !== confirmation) throw new Error('两次密码不一致，未创建管理员')
   const user = bootstrapInitialAdmin({ username, displayName, password })
