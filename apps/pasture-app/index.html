@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#f4f6f1" />
+    <title>数牧空间</title>
+    <!--
+      首屏加载动画：这段样式与下方 #app-loading 均为内联，不依赖任何 JS/CSS 产物，
+      因此浏览器一解析到 HTML 就能立即绘制，避免应用启动前的白屏。
+      动画结束逻辑由页面底部的内联脚本负责，应用挂载后会自动淡出并移除。
+    -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+      }
+
+      /*
+        仅在加载层存在时接管页面底色，加载层移除后自动让位给应用自身的样式，
+        避免覆盖 body 的默认背景色。
+      */
+      html:has(#app-loading),
+      body:has(#app-loading) {
+        background: #f4f6f1;
+      }
+
+      #app-loading {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: calc(env(safe-area-inset-top, 0px) + 32px) 24px
+          calc(env(safe-area-inset-bottom, 0px) + 40px);
+        color: #1d3029;
+        font-family: 'Manrope', 'Noto Sans SC', -apple-system, BlinkMacSystemFont,
+          'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+        -webkit-font-smoothing: antialiased;
+        background:
+          radial-gradient(120% 78% at 50% -6%, #ffffff 0%, #f1f5ec 44%, #e4ede0 100%);
+        opacity: 1;
+        transition: opacity 420ms ease, transform 420ms ease;
+        will-change: opacity, transform;
+      }
+
+      #app-loading.is-done {
+        opacity: 0;
+        transform: scale(1.04);
+        pointer-events: none;
+      }
+
+      #app-loading .al-glow {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: min(80vw, 420px);
+        aspect-ratio: 1 / 1;
+        border-radius: 50%;
+        transform: translate(-50%, -64%);
+        background: radial-gradient(
+          circle,
+          rgba(53, 99, 76, 0.16) 0%,
+          rgba(53, 99, 76, 0.05) 46%,
+          rgba(53, 99, 76, 0) 70%
+        );
+        animation: al-glow 3.6s ease-in-out infinite;
+      }
+
+      #app-loading .al-stage {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+      }
+
+      #app-loading .al-emblem {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 120px;
+        height: 120px;
+        margin-bottom: 30px;
+      }
+
+      #app-loading .al-ring {
+        position: absolute;
+        border-radius: 50%;
+      }
+
+      #app-loading .al-ring--outer {
+        inset: 0;
+        border: 2px solid rgba(53, 99, 76, 0.12);
+        border-top-color: #35634c;
+        border-right-color: rgba(53, 99, 76, 0.5);
+        animation: al-spin 1.5s linear infinite;
+      }
+
+      #app-loading .al-ring--inner {
+        inset: 21px;
+        border: 2px solid transparent;
+        border-bottom-color: rgba(53, 99, 76, 0.6);
+        border-left-color: rgba(184, 134, 53, 0.5);
+        animation: al-spin 2.2s linear infinite reverse;
+      }
+
+      #app-loading .al-halo {
+        position: absolute;
+        inset: 12px;
+        border-radius: 50%;
+        border: 1px solid rgba(53, 99, 76, 0.22);
+        animation: al-pulse 2.4s ease-out infinite;
+      }
+
+      #app-loading .al-mark {
+        position: relative;
+        z-index: 3;
+        display: grid;
+        place-items: center;
+        width: 74px;
+        height: 74px;
+        border-radius: 22px;
+        color: #ffffff;
+        font-size: 34px;
+        font-weight: 700;
+        line-height: 1;
+        background: linear-gradient(150deg, #41755c 0%, #274a3a 100%);
+        box-shadow:
+          0 16px 30px rgba(29, 59, 48, 0.28),
+          inset 0 1px 0 rgba(255, 255, 255, 0.3);
+        animation: al-bob 2.8s ease-in-out infinite;
+      }
+
+      #app-loading .al-title {
+        margin: 0;
+        color: #1d3b30;
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-indent: 0.18em;
+      }
+
+      #app-loading .al-sub {
+        margin: 10px 0 0;
+        color: #7e8b84;
+        font-size: 12.5px;
+        letter-spacing: 0.06em;
+      }
+
+      #app-loading .al-progress {
+        position: relative;
+        z-index: 2;
+        width: 132px;
+        height: 4px;
+        margin-top: 34px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(53, 99, 76, 0.12);
+      }
+
+      #app-loading .al-bar {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        width: 42%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #7cb08d 0%, #35634c 100%);
+        animation: al-sweep 1.25s cubic-bezier(0.6, 0.1, 0.4, 0.9) infinite;
+      }
+
+      #app-loading .al-hint {
+        position: relative;
+        z-index: 2;
+        margin: 16px 0 0;
+        color: #93a09a;
+        font-size: 12px;
+        letter-spacing: 0.08em;
+      }
+
+      #app-loading .al-particles {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        overflow: hidden;
+        pointer-events: none;
+      }
+
+      #app-loading .al-particles i {
+        position: absolute;
+        bottom: -10px;
+        display: block;
+        border-radius: 50%;
+        background: rgba(53, 99, 76, 0.22);
+        opacity: 0;
+        animation-name: al-rise;
+        animation-timing-function: linear;
+        animation-iteration-count: infinite;
+      }
+
+      #app-loading .al-particles i:nth-child(1) {
+        left: 14%;
+        width: 5px;
+        height: 5px;
+        animation-duration: 8.5s;
+        animation-delay: 0s;
+      }
+
+      #app-loading .al-particles i:nth-child(2) {
+        left: 28%;
+        width: 7px;
+        height: 7px;
+        animation-duration: 11s;
+        animation-delay: 1.6s;
+      }
+
+      #app-loading .al-particles i:nth-child(3) {
+        left: 46%;
+        width: 4px;
+        height: 4px;
+        animation-duration: 9.5s;
+        animation-delay: 3.2s;
+      }
+
+      #app-loading .al-particles i:nth-child(4) {
+        left: 63%;
+        width: 6px;
+        height: 6px;
+        animation-duration: 10.5s;
+        animation-delay: 2.4s;
+      }
+
+      #app-loading .al-particles i:nth-child(5) {
+        left: 78%;
+        width: 5px;
+        height: 5px;
+        animation-duration: 12s;
+        animation-delay: 4.5s;
+      }
+
+      #app-loading .al-particles i:nth-child(6) {
+        left: 88%;
+        width: 4px;
+        height: 4px;
+        animation-duration: 9s;
+        animation-delay: 1s;
+      }
+
+      @keyframes al-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @keyframes al-pulse {
+        0% {
+          opacity: 0.9;
+          transform: scale(0.86);
+        }
+        70%,
+        100% {
+          opacity: 0;
+          transform: scale(1.28);
+        }
+      }
+
+      @keyframes al-bob {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-5px);
+        }
+      }
+
+      @keyframes al-glow {
+        0%,
+        100% {
+          opacity: 0.7;
+          transform: translate(-50%, -64%) scale(1);
+        }
+        50% {
+          opacity: 1;
+          transform: translate(-50%, -64%) scale(1.06);
+        }
+      }
+
+      @keyframes al-sweep {
+        0% {
+          transform: translateX(-110%);
+        }
+        100% {
+          transform: translateX(250%);
+        }
+      }
+
+      @keyframes al-rise {
+        0% {
+          opacity: 0;
+          transform: translateY(0) scale(0.7);
+        }
+        15% {
+          opacity: 0.85;
+        }
+        85% {
+          opacity: 0.45;
+        }
+        100% {
+          opacity: 0;
+          transform: translateY(-108vh) scale(1.1);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        #app-loading .al-glow,
+        #app-loading .al-ring--outer,
+        #app-loading .al-ring--inner,
+        #app-loading .al-halo,
+        #app-loading .al-mark,
+        #app-loading .al-bar,
+        #app-loading .al-particles i {
+          animation: none;
+        }
+
+        #app-loading .al-bar {
+          width: 100%;
+          opacity: 0.65;
+          transform: none;
+        }
+
+        #app-loading .al-particles {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <div id="app-loading" role="status" aria-live="polite" aria-label="正在加载数牧空间">
+      <div class="al-glow" aria-hidden="true"></div>
+      <div class="al-stage">
+        <div class="al-emblem" aria-hidden="true">
+          <span class="al-ring al-ring--outer"></span>
+          <span class="al-halo"></span>
+          <span class="al-mark">牧</span>
+          <span class="al-ring al-ring--inner"></span>
+        </div>
+        <h1 class="al-title">数牧空间</h1>
+        <p class="al-sub">阿坝高原智慧放牧示范应用</p>
+      </div>
+      <div class="al-progress" aria-hidden="true"><span class="al-bar"></span></div>
+      <p class="al-hint">正在进入牧场…</p>
+      <div class="al-particles" aria-hidden="true">
+        <i></i><i></i><i></i><i></i><i></i><i></i>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+    <script>
+      (function () {
+        var splash = document.getElementById('app-loading')
+        if (!splash) return
+
+        var dismissed = false
+        function dismiss() {
+          if (dismissed) return
+          dismissed = true
+          splash.classList.add('is-done')
+          window.setTimeout(function () {
+            if (splash && splash.parentNode) splash.parentNode.removeChild(splash)
+          }, 480)
+        }
+
+        var root = document.getElementById('app')
+        if (root && root.childElementCount > 0) {
+          dismiss()
+        } else if (root && 'MutationObserver' in window) {
+          // uni-app 运行时挂载后 #app 会出现子节点，此时说明首屏已就绪。
+          var observer = new MutationObserver(function () {
+            if (root.childElementCount > 0) {
+              observer.disconnect()
+              dismiss()
+            }
+          })
+          observer.observe(root, { childList: true })
+        } else {
+          window.addEventListener('load', dismiss)
+        }
+
+        // 兜底：即使挂载检测失败，也不让用户长时间停留在加载页。
+        window.setTimeout(dismiss, 10000)
+      })()
+    </script>
+  </body>
+</html>

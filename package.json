@@ -9,12 +9,12 @@
   ],
   "scripts": {
     "dev:3d": "npm run dev --workspace @tiansun/pasture-3d",
-    "dev:app": "npm run dev --workspace @tiansun/pasture-web",
+    "dev:app": "npm run dev --workspace @tiansun/pasture-app",
     "dev:api": "npm run dev --workspace @tiansun/api",
     "build": "npm run build --workspaces --if-present",
     "test": "npm test --workspace @tiansun/api",
     "start": "npm start --workspace @tiansun/api",
-    "dev:h5": "npm run dev --workspace @tiansun/pasture-web",
+    "dev:h5": "npm run dev --workspace @tiansun/pasture-app",
     "dev:admin": "npm run dev --workspace @tiansun/pasture-admin",
     "dev:screen": "npm run dev --workspace @tiansun/pasture-3d"
   },

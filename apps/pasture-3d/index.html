@@ -3,50 +3,94 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="阿坝智慧放牧三维监测平台" />
-    <title>智慧放牧 3D 监测</title>
+    <meta name="description" content="数牧空间 · 阿坝三维放牧监测平台" />
+    <title>数牧空间 · 三维监测平台</title>
   </head>
   <body>
     <main id="app-shell">
       <div id="scene-container" aria-label="阿坝放牧区三维地图"></div>
 
       <header class="topbar">
-        <div class="brand">
-          <span class="brand-mark">牧</span>
-          <div><h1>智慧放牧</h1><p>阿坝草地监测中心</p></div>
+        <div class="topbar-glow" aria-hidden="true"></div>
+        <div class="topbar-edge topbar-edge-left" aria-hidden="true"></div>
+        <div class="topbar-edge topbar-edge-right" aria-hidden="true"></div>
+
+        <div class="topbar-left">
+          <div class="brand">
+            <span class="brand-mark" aria-hidden="true">
+              <img class="brand-mark-image" src="/logo-mark.png" alt="" width="40" height="40" />
+            </span>
+            <div class="brand-text">
+              <h1>数牧空间</h1>
+              <p><i class="brand-dot" aria-hidden="true"></i>阿坝草地监测中心</p>
+            </div>
+          </div>
+
+          <div id="header-sim" class="topbar-sim" data-phase="放牧" aria-label="放牧时间">
+            <div class="sim-stack">
+              <span class="sim-heading">放牧时间<i id="header-sim-day" class="sim-day">第 1 天</i></span>
+              <span class="sim-row">
+                <strong id="header-sim-time" class="sim-time">10:00</strong>
+                <i id="header-sim-phase" class="sim-phase">放牧</i>
+              </span>
+              <span class="sim-track" aria-hidden="true"><i id="header-sim-progress" class="sim-track-fill"></i></span>
+            </div>
+          </div>
         </div>
+
+        <div class="topbar-title" aria-hidden="true">
+          <span class="title-line title-line-left"></span>
+          <div class="title-stack">
+            <strong>数牧空间 · 三维监测平台</strong>
+            <em>SHUMU SPACE · 3D MONITORING</em>
+          </div>
+          <span class="title-line title-line-right"></span>
+        </div>
+
         <div class="filters" aria-label="牲畜筛选">
-          <label>状态<select id="status-filter"><option value="all">全部状态</option><option value="normal">正常</option><option value="attention">需关注</option><option value="abnormal">异常</option><option value="offline">掉线</option></select></label>
-          <label>牧户<select id="owner-filter"><option value="all">全部牧户</option><option value="owner-a">扎西家</option><option value="owner-b">卓玛家</option><option value="owner-c">多吉家</option><option value="owner-d">央金家</option></select></label>
+          <label class="filter-field">状态<select id="status-filter"><option value="all">全部状态</option><option value="normal">正常</option><option value="attention">需关注</option><option value="abnormal">异常</option><option value="offline">掉线</option></select></label>
+          <label class="filter-field">牧户<select id="owner-filter"><option value="all">全部牧户</option><option value="owner-a">扎西家</option><option value="owner-b">卓玛家</option><option value="owner-c">多吉家</option><option value="owner-d">央金家</option></select></label>
           <span id="visible-count" class="count-badge">0 / 60</span>
           <span id="offline-alert" class="offline-alert">0 头牲畜设备掉线</span>
+          <div class="topbar-clock">
+            <span id="clock-time" class="clock-time">--:--:--</span>
+            <span id="clock-date" class="clock-date">加载中</span>
+          </div>
         </div>
       </header>
 
-      <aside class="legend-panel">
-        <h2>实时态势</h2>
-        <div class="legend-row"><i class="dot normal"></i><span>正常</span><strong id="normal-count">48</strong></div>
-        <div class="legend-row"><i class="dot attention"></i><span>需关注</span><strong id="attention-count">9</strong></div>
-        <div class="legend-row"><i class="dot abnormal"></i><span>异常</span><strong id="abnormal-count">3</strong></div>
-        <div class="legend-row"><i class="dot offline"></i><span>掉线</span><strong id="offline-count">0</strong></div>
-        <hr />
-        <div class="area-key"><i class="area-color excellent"></i>优良</div>
-        <div class="area-key"><i class="area-color average"></i>一般</div>
-        <div class="area-key"><i class="area-color poor"></i>较差</div>
-        <div class="area-key"><i class="area-color prohibited"></i>禁牧</div>
-        <div class="area-key site-key"><i class="site-key-mark"></i>牧民定居点</div>
-        <div class="area-key site-key"><i class="rest-key-mark"></i>夜间休息区</div>
-        <hr />
-        <div class="simulation-panel" aria-label="放牧时间模拟">
-          <div class="simulation-heading">
-            <span>放牧时间</span>
-            <span id="simulation-day-label" class="simulation-day">第 1 天</span>
-            <strong id="simulation-time-label">10:00 · 放牧</strong>
-          </div>
-          <input id="simulation-time" type="range" min="0" max="72" step="0.05" value="10" aria-label="模拟时间" />
-          <div class="simulation-controls">
-            <button id="simulation-toggle" type="button">暂停</button>
-            <label>倍率<select id="simulation-speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
+      <aside id="legend-panel" class="legend-panel" aria-label="实时态势面板">
+        <header class="legend-head">
+          <h2 class="legend-title">实时态势</h2>
+          <span class="legend-vertical" aria-hidden="true">实时态势</span>
+          <button id="legend-toggle" class="legend-toggle" type="button" aria-expanded="true" aria-controls="legend-body" aria-label="收起实时态势面板" title="收起">
+            <span class="legend-toggle-icon" aria-hidden="true">‹</span>
+          </button>
+        </header>
+        <div id="legend-body" class="legend-body">
+          <div class="legend-row"><i class="dot normal"></i><span>正常</span><strong id="normal-count">48</strong></div>
+          <div class="legend-row"><i class="dot attention"></i><span>需关注</span><strong id="attention-count">9</strong></div>
+          <div class="legend-row"><i class="dot abnormal"></i><span>异常</span><strong id="abnormal-count">3</strong></div>
+          <div class="legend-row"><i class="dot offline"></i><span>掉线</span><strong id="offline-count">0</strong></div>
+          <hr />
+          <div class="area-key"><i class="area-color excellent"></i>优良</div>
+          <div class="area-key"><i class="area-color average"></i>一般</div>
+          <div class="area-key"><i class="area-color poor"></i>较差</div>
+          <div class="area-key"><i class="area-color prohibited"></i>禁牧</div>
+          <div class="area-key site-key"><i class="site-key-mark"></i>牧民定居点</div>
+          <div class="area-key site-key"><i class="rest-key-mark"></i>夜间休息区</div>
+          <hr />
+          <div class="simulation-panel" aria-label="放牧时间模拟">
+            <div class="simulation-heading">
+              <span>放牧时间</span>
+              <span id="simulation-day-label" class="simulation-day">第 1 天</span>
+              <strong id="simulation-time-label">10:00 · 放牧</strong>
+            </div>
+            <input id="simulation-time" type="range" min="0" max="72" step="0.05" value="10" aria-label="模拟时间" />
+            <div class="simulation-controls">
+              <button id="simulation-toggle" type="button">暂停</button>
+              <label>倍率<select id="simulation-speed"><option value="0.1">0.1×</option><option value="0.2">0.2×</option><option value="0.5" selected>0.5×</option><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
+            </div>
           </div>
         </div>
       </aside>
@@ -79,9 +123,60 @@
       <div id="scene-tooltip" class="scene-tooltip" role="status" hidden></div>
 
       <div id="loading-panel" class="loading-panel">
-        <span class="loader"></span>
-        <strong id="loading-title">正在连接天地图</strong>
-        <span id="loading-message">准备卫星影像与地形高程...</span>
+        <div class="lp-grid" aria-hidden="true"></div>
+        <div class="lp-scan" aria-hidden="true"></div>
+        <div class="lp-stage">
+          <div class="lp-emblem" aria-hidden="true">
+            <span class="lp-halo"></span>
+            <span class="lp-ring lp-ring--outer"></span>
+            <span class="lp-ring lp-ring--mid"></span>
+            <svg class="lp-glyph" viewBox="3.4 2.6 26.6 25.8" focusable="false" aria-hidden="true">
+              <defs>
+                <linearGradient id="lpGlyphGrad" x1="6" y1="7" x2="25" y2="27" gradientUnits="userSpaceOnUse">
+                  <stop offset="0" stop-color="#ecfff8" />
+                  <stop offset=".45" stop-color="#7bf0c4" />
+                  <stop offset="1" stop-color="#2cb587" />
+                </linearGradient>
+                <linearGradient id="lpGlyphSoft" x1="7" y1="13" x2="23" y2="25" gradientUnits="userSpaceOnUse">
+                  <stop offset="0" stop-color="#d6fff0" />
+                  <stop offset="1" stop-color="#57dfae" />
+                </linearGradient>
+              </defs>
+              <g fill="url(#lpGlyphGrad)">
+                <circle cx="13.6" cy="19.4" r="3.4" />
+                <circle cx="16.3" cy="18.3" r="4.5" />
+                <circle cx="19.9" cy="16.7" r="4.2" />
+                <circle cx="21.5" cy="19.7" r="3.5" />
+                <circle cx="17.5" cy="20.7" r="3.8" />
+              </g>
+              <ellipse cx="12.9" cy="13.4" rx="2.15" ry="1" transform="rotate(-27 12.9 13.4)" fill="url(#lpGlyphSoft)" />
+              <ellipse cx="10.5" cy="16.4" rx="3.25" ry="2.85" transform="rotate(-12 10.5 16.4)" fill="url(#lpGlyphSoft)" />
+              <ellipse cx="7.45" cy="17.45" rx="1.7" ry="1.32" transform="rotate(-16 7.45 17.45)" fill="url(#lpGlyphSoft)" />
+              <circle cx="9.35" cy="15.15" r=".8" fill="#04261b" />
+              <g fill="none" stroke="url(#lpGlyphGrad)" stroke-width="1.75" stroke-linecap="round">
+                <path d="M15 23.7v2.9" />
+                <path d="M19.8 23.5v3.1" />
+              </g>
+              <circle cx="22.5" cy="11.4" r="1.1" fill="url(#lpGlyphGrad)" />
+              <g fill="none" stroke="url(#lpGlyphGrad)" stroke-width="1.55" stroke-linecap="round" opacity=".9">
+                <path d="M22.06 7.22A4.2 4.2 0 0 1 26.39 9.83" />
+                <path d="M21.77 4.44A7 7 0 0 1 28.99 8.78" opacity=".62" />
+              </g>
+            </svg>
+            <span class="lp-ring lp-ring--inner"></span>
+          </div>
+          <div class="lp-brand">
+            <h1 class="lp-name">数牧空间</h1>
+            <p class="lp-tag">SHUMU SPACE · 3D MONITORING</p>
+          </div>
+        </div>
+        <div class="lp-status">
+          <span class="loader" aria-hidden="true"></span>
+          <strong id="loading-title">正在连接天地图</strong>
+          <span id="loading-message">准备卫星影像与地形高程...</span>
+        </div>
+        <div class="lp-progress" aria-hidden="true"><span class="lp-bar"></span></div>
+        <div class="lp-particles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
       </div>
 
       <div id="prohibited-modal" class="prohibited-modal" hidden>

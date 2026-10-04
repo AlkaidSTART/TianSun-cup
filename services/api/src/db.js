@@ -123,8 +123,125 @@ if (!hasColumn('todos', 'user_id')) {
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_livestock_user_id ON livestock(user_id);
   CREATE INDEX IF NOT EXISTS idx_todos_user_date_time ON todos(user_id, todo_date, todo_time, id);
-  PRAGMA user_version = 1;
 `)
+
+// Pasture management units. `area_code` maps a unit to the 3D screen's ecological
+// zone (area-a..area-d) purely for backend bookkeeping; it is never returned by
+// the API. See docs/api-contract.md section 1.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS pastures (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    area_code TEXT NOT NULL,
+    area_size REAL NOT NULL,
+    quality TEXT NOT NULL CHECK (quality IN ('excellent', 'fair', 'poor', 'closed')),
+    capacity INTEGER NOT NULL CHECK (capacity >= 0),
+    coverage REAL NOT NULL DEFAULT 0,
+    grass_height REAL,
+    soil_moisture REAL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+`)
+
+// Daily pressure snapshots feed the "near 7 days" chart. A day with no visit
+// has no row, so history starts when the feature ships rather than being
+// back-filled with invented numbers.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS pasture_pressure_daily (
+    pasture_id TEXT NOT NULL,
+    snapshot_date TEXT NOT NULL,
+    pressure REAL NOT NULL,
+    current_load INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (pasture_id, snapshot_date)
+  );
+`)
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS livestock_telemetry (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    livestock_id TEXT NOT NULL,
+    recorded_at TEXT NOT NULL,
+    longitude REAL NOT NULL,
+    latitude REAL NOT NULL,
+    temperature REAL,
+    heart_rate INTEGER,
+    steps INTEGER,
+    rumination INTEGER,
+    health_status TEXT CHECK (health_status IN ('normal', 'attention', 'abnormal')),
+    source TEXT NOT NULL DEFAULT 'device',
+    created_at TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_telemetry_livestock_time
+    ON livestock_telemetry(livestock_id, recorded_at DESC);
+
+  -- A sample is only meaningful for a livestock record that exists.
+  CREATE TRIGGER IF NOT EXISTS telemetry_require_livestock_insert
+  BEFORE INSERT ON livestock_telemetry
+  WHEN NOT EXISTS (SELECT 1 FROM livestock WHERE livestock.id = NEW.livestock_id)
+  BEGIN SELECT RAISE(ABORT, 'livestock_telemetry requires an existing livestock record'); END;
+`)
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS alerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('temperature', 'pressure', 'device')),
+    severity TEXT NOT NULL CHECK (severity IN ('bad', 'warn', 'off')),
+    target_type TEXT NOT NULL CHECK (target_type IN ('livestock', 'pasture')),
+    target_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    detail TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('pending', 'handling', 'resolved')),
+    rule_key TEXT NOT NULL,
+    resolved_at TEXT,
+    triggered_at TEXT NOT NULL,
+    handled_by TEXT,
+    handled_by_name TEXT,
+    handled_at TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_alerts_open_rule
+    ON alerts(user_id, target_type, target_id, rule_key) WHERE resolved_at IS NULL;
+  CREATE INDEX IF NOT EXISTS idx_alerts_triggered_at ON alerts(triggered_at DESC);
+`)
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS consultations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT NOT NULL UNIQUE,
+    user_id TEXT NOT NULL,
+    livestock_id TEXT,
+    pasture_id TEXT,
+    symptoms TEXT NOT NULL DEFAULT '[]',
+    description TEXT NOT NULL DEFAULT '',
+    title TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('open', 'answered', 'closed')),
+    doctor_name TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS consultation_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    consultation_id INTEGER NOT NULL REFERENCES consultations(id) ON DELETE CASCADE,
+    role TEXT NOT NULL CHECK (role IN ('doctor', 'user')),
+    author_name TEXT NOT NULL,
+    text TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_consult_messages
+    ON consultation_messages(consultation_id, created_at);
+`)
+
+db.exec('PRAGMA user_version = 2;')
 const insertStatement = db.prepare(`
   INSERT INTO livestock (
     id, species, breed, sex, source_type, mother_id, birth_date, purchase_date,
@@ -185,6 +302,42 @@ function importSeedData() {
 }
 
 importSeedData()
+
+// Default pasture units. `/api/meta/options` must keep returning exactly these
+// ids, names and order, so they are seeded once and then owned by the table.
+const defaultPastures = [
+  { id: 'P-A-01', name: '东沟草场', areaCode: 'area-a', areaSize: 320, quality: 'excellent', capacity: 60, coverage: 0.75, grassHeight: 18, soilMoisture: 0.42, sortOrder: 1 },
+  { id: 'P-A-02', name: '北坡草场', areaCode: 'area-b', areaSize: 210, quality: 'fair', capacity: 48, coverage: 0.58, grassHeight: 12, soilMoisture: 0.31, sortOrder: 2 },
+  { id: 'P-A-03', name: '河谷草场', areaCode: 'area-c', areaSize: 280, quality: 'excellent', capacity: 55, coverage: 0.82, grassHeight: 21, soilMoisture: 0.55, sortOrder: 3 },
+]
+
+function importPastureData() {
+  const count = Number(db.prepare('SELECT COUNT(*) AS count FROM pastures').get().count)
+  if (count > 0) return
+  const now = new Date().toISOString()
+  const insert = db.prepare(`
+    INSERT INTO pastures (
+      id, name, area_code, area_size, quality, capacity, coverage,
+      grass_height, soil_moisture, sort_order, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+  db.exec('BEGIN')
+  try {
+    for (const pasture of defaultPastures) {
+      insert.run(
+        pasture.id, pasture.name, pasture.areaCode, pasture.areaSize, pasture.quality,
+        pasture.capacity, pasture.coverage, pasture.grassHeight, pasture.soilMoisture,
+        pasture.sortOrder, now, now,
+      )
+    }
+    db.exec('COMMIT')
+  } catch (error) {
+    db.exec('ROLLBACK')
+    throw error
+  }
+}
+
+importPastureData()
 
 export function closeDatabase() {
   db.close()

@@ -1,7 +1,7 @@
 FROM node:22-bookworm-slim AS build
 WORKDIR /repo
-ARG VITE_TIANDITU_TOKEN
-ENV VITE_TIANDITU_TOKEN=${VITE_TIANDITU_TOKEN}
+ARG TIANDITU_TOKEN
+ENV TIANDITU_TOKEN=${TIANDITU_TOKEN}
 COPY . .
 RUN npm ci
 RUN npm run build
@@ -15,13 +15,13 @@ ENV NODE_ENV=production \
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY apps/pasture-3d/package.json apps/pasture-3d/package.json
-COPY apps/pasture-web/package.json apps/pasture-web/package.json
+COPY apps/pasture-app/package.json apps/pasture-app/package.json
 COPY apps/pasture-admin/package.json apps/pasture-admin/package.json
 COPY services/api/package.json services/api/package.json
 RUN npm ci --omit=dev
 COPY --from=build /repo/services/api ./services/api
 COPY --from=build /repo/apps/pasture-3d/dist ./apps/pasture-3d/dist
-COPY --from=build /repo/apps/pasture-web/dist ./apps/pasture-web/dist
+COPY --from=build /repo/apps/pasture-app/dist ./apps/pasture-app/dist
 COPY --from=build /repo/apps/pasture-admin ./apps/pasture-admin
 RUN mkdir -p /app/services/api/data /app/seed \
     && cp /app/services/api/data/livestock.seed.json /app/seed/livestock.seed.json \

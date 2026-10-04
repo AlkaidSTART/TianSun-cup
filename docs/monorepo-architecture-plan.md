@@ -15,7 +15,7 @@
 | 组成 | 当前路径 | 职责 |
 | --- | --- | --- |
 | Web 大屏 | `apps/pasture-3d/` | Three.js / Vite 大屏工程，包含主页面和 legacy 页面。 |
-| H5 端 | `apps/pasture-web/` | uni-app（Vue 3 + Vite）工程；可构建 H5 与微信小程序，开发环境 `/api` 代理至 Express。 |
+| H5 端 | `apps/pasture-app/` | uni-app（Vue 3 + Vite）工程；可构建 H5 与微信小程序，开发环境 `/api` 代理至 Express。 |
 | 管理后台 | `apps/pasture-admin/` | Vite 构建的牲畜档案管理后台，开发环境 `/api` 代理至 Express。 |
 | API 服务 | `services/api/` | Express 路由、SQLite store/db 与测试，仅托管前端构建产物。 |
 | 统一工具与部署 | 根目录 | npm workspaces、Dockerfile、Compose、`start.sh`。 |
@@ -25,7 +25,7 @@
 ## 3. 目录与工作区
 
 ```text
-apps/pasture-web/      # H5 / uni-app + Vue/Vite
+apps/pasture-app/      # H5 / uni-app + Vue/Vite
 apps/pasture-admin/    # 管理后台 / Vite
 apps/pasture-3d/       # Web 大屏 / Three.js/Vite
 services/api/          # Express + SQLite
@@ -74,7 +74,7 @@ Express 是唯一 HTTP 服务进程，同时托管 API 与三个前端构建产�
 | `./start.sh` | 构建并后台启动 Compose 服务 |
 | `.\start.ps1` | Windows PowerShell 构建并后台启动 Compose 服务 |
 
-`start.sh` 和 `start.ps1` 均支持透传 `down`、`logs` 等 Compose 命令，不会删除卷或重置数据库。默认主机端口为 `3000`，可通过根 `.env` 的 `PORT` 调整。地图 token 可在构建时通过 `VITE_TIANDITU_TOKEN` 传入；该前端配置会进入客户端构建产物，应按公开客户端配置管理，不放置服务端密钥。
+`start.sh` 和 `start.ps1` 均支持透传 `down`、`logs` 等 Compose 命令，不会删除卷或重置数据库。默认主机端口为 `3000`，可通过根 `.env` 的 `PORT` 调整。地图 token 可在构建时通过 `TIANDITU_TOKEN` 传入；该前端配置会进入客户端构建产物，应按公开客户端配置管理，不放置服务端密钥。
 
 ## 7. 架构决策
 

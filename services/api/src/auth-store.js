@@ -6,10 +6,10 @@
   timingSafeEqual,
 } from 'node:crypto'
 import { db } from './db.js'
-import { ApiError } from './store.js'
+import { ApiError } from './shared.js'
 
 const passwordBytes = 64
-const passwordMinLength = 10
+const passwordMinLength = 6
 const passwordMaxLength = 128
 const sessionLifetimeMs = 7 * 24 * 60 * 60 * 1000
 const loginWindowMs = 15 * 60 * 1000

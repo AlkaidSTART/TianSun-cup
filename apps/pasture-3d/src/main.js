@@ -44,9 +44,10 @@ import {
 } from './livestock-day3-overflow.js';
 import { createOverflowMarkerLayer } from './overflow-marker.js';
 import { createMapSources } from './map-sources.js';
+import { showModelPreview, hideModelPreview } from './model-preview.js';
 import './style.css';
 
-const token = import.meta.env.VITE_TIANDITU_TOKEN?.trim();
+const token = import.meta.env.TIANDITU_TOKEN?.trim();
 const root = document.querySelector('#scene-container');
 const loadingPanel = document.querySelector('#loading-panel');
 const loadingTitle = document.querySelector('#loading-title');
@@ -57,7 +58,7 @@ const detailPanel = document.querySelector('#detail-panel');
 const detailKicker = document.querySelector('#detail-kicker');
 const detailTitle = document.querySelector('#detail-title');
 const detailContent = document.querySelector('#detail-content');
-const modelPreview = document.querySelector('#model-preview');
+const modelPreviewSection = document.querySelector('#model-preview');
 const statusFilter = document.querySelector('#status-filter');
 const ownerFilter = document.querySelector('#owner-filter');
 const visibleCount = document.querySelector('#visible-count');
@@ -72,6 +73,12 @@ const simulationTimeLabel = document.querySelector('#simulation-time-label');
 const simulationDayLabel = document.querySelector('#simulation-day-label');
 const simulationSpeed = document.querySelector('#simulation-speed');
 const simulationToggle = document.querySelector('#simulation-toggle');
+const headerSim = document.querySelector('#header-sim');
+const headerSimDay = document.querySelector('#header-sim-day');
+const headerSimTime = document.querySelector('#header-sim-time');
+const headerSimPhase = document.querySelector('#header-sim-phase');
+const headerSimProgress = document.querySelector('#header-sim-progress');
+const topbar = document.querySelector('.topbar');
 const messageList = document.querySelector('#message-list');
 const messageCount = document.querySelector('#message-count');
 const messageClear = document.querySelector('#message-clear');
@@ -93,7 +100,12 @@ function formatMessageTime(date = new Date()) {
 
 function createMessageFeed() {
   const items = [];
+  const renderedKeys = new Set();
   let nextId = 0;
+
+  function entryKey(entry) {
+    return `${entry.kind}|${entry.time}|${entry.text}`;
+  }
 
   function isPinnedToLatest() {
     if (!messageList) return true;
@@ -148,6 +160,7 @@ function createMessageFeed() {
     messageList.append(createRow(item, animate));
 
     items.push(item);
+    renderedKeys.add(entryKey(item));
     updateCount();
     if (pinned) {
       scrollToLatest();
@@ -160,17 +173,23 @@ function createMessageFeed() {
   }
 
   // 按时间轴整体重绘：只显示「模拟时间 ≤ 当前进度」的消息，因此拖动进度条能正反过滤。
+  // 与上一帧对比，只有新出现的消息才播放「滚动入镜」，多条同时出现时依次错开。
   function setItems(entries) {
     if (!messageList) return;
+    const previousKeys = new Set(renderedKeys);
     items.length = 0;
+    renderedKeys.clear();
     messageList.replaceChildren();
     if (!entries.length) {
       renderEmptyState();
       updateCount();
       return;
     }
+    let stagger = 0;
     entries.forEach((entry) => {
       const meta = MESSAGE_KINDS[entry.kind] ?? MESSAGE_KINDS.overflow;
+      const key = entryKey(entry);
+      const isNew = !previousKeys.has(key);
       const item = {
         id: `msg-${++nextId}`,
         kind: entry.kind,
@@ -179,7 +198,14 @@ function createMessageFeed() {
         icon: meta.icon
       };
       items.push(item);
-      messageList.append(createRow(item, false));
+      renderedKeys.add(key);
+      const row = createRow(item, isNew);
+      if (isNew) {
+        // 同时入镜的消息按出现顺序错开，形成一条条滚动滑入的效果
+        row.style.animationDelay = `${Math.min(stagger, 8) * 80}ms`;
+        stagger += 1;
+      }
+      messageList.append(row);
     });
     updateCount();
     scrollToLatest();
@@ -212,11 +238,108 @@ function layoutMessageFeed() {
   feed.style.height = `${Math.max(158, Math.min(preferredHeight, available) * heightScale)}px`;
 }
 
+// 实时态势抽屉栏：可收纳/展开，并在宽度动画过程中同步下方消息面板高度。
+const legendPanel = document.querySelector('#legend-panel');
+const legendToggle = document.querySelector('#legend-toggle');
+const LEGEND_COLLAPSED_KEY = 'pasture3d:legend-collapsed';
+
+function setLegendCollapsed(collapsed, { persist = true } = {}) {
+  if (!legendPanel || !legendToggle) return;
+  legendPanel.classList.toggle('collapsed', collapsed);
+  legendToggle.setAttribute('aria-expanded', String(!collapsed));
+  legendToggle.setAttribute('aria-label', collapsed ? '展开实时态势面板' : '收起实时态势面板');
+  legendToggle.title = collapsed ? '展开' : '收起';
+  if (persist) {
+    try {
+      localStorage.setItem(LEGEND_COLLAPSED_KEY, collapsed ? '1' : '0');
+    } catch (error) {
+      // 隐私模式等场景下 localStorage 不可用，忽略即可。
+    }
+  }
+}
+
+function initLegendDrawer() {
+  if (!legendPanel || !legendToggle) return;
+  let collapsed = false;
+  try {
+    collapsed = localStorage.getItem(LEGEND_COLLAPSED_KEY) === '1';
+  } catch (error) {
+    collapsed = false;
+  }
+  setLegendCollapsed(collapsed, { persist: false });
+
+  legendPanel.querySelector('.legend-head')?.addEventListener('click', () => {
+    setLegendCollapsed(!legendPanel.classList.contains('collapsed'));
+  });
+
+  if (typeof ResizeObserver === 'function') {
+    const observer = new ResizeObserver(() => layoutMessageFeed());
+    observer.observe(legendPanel);
+  } else {
+    legendPanel.addEventListener('transitionend', (event) => {
+      if (event.propertyName === 'width') layoutMessageFeed();
+    });
+  }
+}
+initLegendDrawer();
+
 messageClear?.addEventListener('click', () => messageFeed.clear());
 
+// 昼夜循环：三组参数（白天/傍晚/夜晚）+ 六个关键帧。
+// 稳定期两端是同一组参数，过渡期两端不同，插值只在过渡期产生变化。
+// 8-15 白天稳定；15-17 白天→傍晚；17-19 傍晚稳定；19-22 傍晚→夜晚；22-4 夜晚稳定；4-8 夜晚→白天。
+const DAY_NIGHT_PARAMS = {
+  day: {
+    ambient: { color: 0xfff5e6, intensity: 1.0 },
+    sun: { color: 0xffffff, intensity: 1.0, position: [40000, 60000, 40000] },
+    sky: ['#87CEEB', '#B0E0E6'],  // 浅蓝渐变
+    fog: { color: 0xB0E0E6, density: 0.0000020 },
+    glowOpacity: { normal: 1.0, attention: 1.0, abnormal: 1.0 }
+  },
+  dusk: {
+    ambient: { color: 0xffb366, intensity: 0.6 },
+    sun: { color: 0xff6633, intensity: 0.7, position: [60000, 15000, 20000] },
+    sky: ['#FF8C42', '#FFB366'],
+    fog: { color: 0xFFB366, density: 0.0000028 },
+    glowOpacity: { normal: 1.0, attention: 1.0, abnormal: 1.0 }
+  },
+  night: {
+    ambient: { color: 0x8fb0d9, intensity: 0.2 },
+    sun: { color: 0x9db8e0, intensity: 0.1, position: [40000, 30000, 60000] },
+    sky: ['#04070f', '#16283f'],
+    fog: { color: 0x0a1424, density: 0.0000032 },
+    glowOpacity: { normal: 0.95, attention: 0.9, abnormal: 0.95 }
+  }
+};
+
+const DAY_NIGHT_KEYFRAMES = [
+  { hour: 4, ...DAY_NIGHT_PARAMS.night },
+  { hour: 8, ...DAY_NIGHT_PARAMS.day },
+  { hour: 15, ...DAY_NIGHT_PARAMS.day },
+  { hour: 17, ...DAY_NIGHT_PARAMS.dusk },
+  { hour: 19, ...DAY_NIGHT_PARAMS.dusk },
+  { hour: 22, ...DAY_NIGHT_PARAMS.night }
+];
+
+const DAY_NIGHT_FRAMES = DAY_NIGHT_KEYFRAMES.map((frame) => ({
+  ...frame,
+  ambientColor: new THREE.Color(frame.ambient.color),
+  sunColor: new THREE.Color(frame.sun.color),
+  sunPosition: new THREE.Vector3(...frame.sun.position),
+  skyColors: frame.sky.map((hex) => new THREE.Color(hex)),
+  fogColor: new THREE.Color(frame.fog.color)
+}));
+
+// 天空渐变复用同一张 CanvasTexture：插值时只重绘渐变并置 needsUpdate，不新建资源。
+const skyCanvas = document.createElement('canvas');
+skyCanvas.width = 8;
+skyCanvas.height = 256;
+const skyContext = skyCanvas.getContext('2d');
+
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x8ba3b1);
-scene.fog = new THREE.FogExp2(0x8ba3b1, 0.0000032);
+scene.background = new THREE.CanvasTexture(skyCanvas);
+scene.background.colorSpace = THREE.SRGBColorSpace;
+scene.fog = new THREE.FogExp2(0x0a1424, 0.0000032);
 
 const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 100, 1500000);
 camera.up.set(0, 1, 0);
@@ -228,9 +351,10 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 root.appendChild(renderer.domElement);
 
-scene.add(new THREE.AmbientLight(0xffffff, 1.8));
-const sun = new THREE.DirectionalLight(0xfff2d2, 2.8);
-sun.position.set(-60000, 120000, 80000);
+const ambientLight = new THREE.AmbientLight(0x8fb0d9, 0.2);
+scene.add(ambientLight);
+const sun = new THREE.DirectionalLight(0x9db8e0, 0.1);
+sun.position.set(40000, 30000, 60000);
 scene.add(sun);
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -246,6 +370,16 @@ const LIVESTOCK_MOTION_GROUND_OFFSET = 10;
 const areaMeshes = [];
 const areaLineMaterials = [];
 const siteObjects = [];
+const settlementOutlineObjects = [];
+// 夜间轮廓光材质：月光淡蓝，加色混合柔光，只在夜间显示。
+const settlementOutlineMaterial = new THREE.LineBasicMaterial({
+  color: 0xa9c8ff,
+  transparent: true,
+  opacity: 0.5,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+  toneMapped: false
+});
 const restZoneMeshes = [];
 const restZoneLineMaterials = [];
 const raycaster = new THREE.Raycaster();
@@ -258,7 +392,10 @@ let map;
 let terrainAvailable = true;
 let demLabel = 'DEM';
 let simulationHour = 10;
-let simulationHoursPerSecond = 1;
+let simulationHoursPerSecond = 0.5;
+const simulationPauseSources = new Set();
+const previewLocationState = new WeakMap();
+const METERS_PER_DEGREE_LATITUDE = 111_320;
 let simulationRunning = true;
 let lastAnimationTime = 0;
 
@@ -384,7 +521,6 @@ const prohibitedActualEntryHour = (() => {
   return prohibitedEntry.startHour;
 })();
 let prohibitedModalShownForEntry = null;
-let modalPausedSimulation = false;
 
 // 提醒消息的时间线：第 1 天掉线（0-24 时）+ 第 2 天越界（24-48 时）+ 第 3 天越界（48-72 时）
 // 合并成一条按绝对时刻排序的列表。每条消息都带模拟时间，渲染时按当前进度过滤，
@@ -588,6 +724,15 @@ function createSettlementModel(site, groundPoint) {
   group.userData = { kind: 'settlement', site };
   group.traverse((child) => {
     if (child.isMesh) child.userData = group.userData;
+  });
+  // 夜间轮廓光：沿构件几何边描一圈柔光，像被月光勾出轮廓。
+  group.traverse((child) => {
+    if (!child.isMesh || !child.geometry) return;
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(child.geometry, 30), settlementOutlineMaterial);
+    edges.renderOrder = 7;
+    edges.userData = group.userData;
+    child.add(edges);
+    settlementOutlineObjects.push(edges);
   });
   siteObjects.push(group);
   scene.add(group);
@@ -834,11 +979,79 @@ function applyOfflineState(hour) {
   if (stateChanged) updateFilters();
 }
 
+// 定居点轮廓光只在夜间（19:00-06:00）显示。
+function isNightHour(hour) {
+  const normalized = normalizeHour(hour);
+  return normalized >= 19 || normalized < 6;
+}
+
+function setSettlementOutlineVisible(visible) {
+  settlementOutlineObjects.forEach((object) => { object.visible = visible; });
+}
+
+// —— 昼夜插值（六关键帧 / 三组参数） ——
+// 8-15 白天稳定；15-17 白天→傍晚；17-19 傍晚稳定；19-22 傍晚→夜晚；22-次日4 夜晚稳定；4-8 夜晚→白天。
+// 每 12 帧更新一次；拖动时间轴跳变（>0.5 模拟小时）时立即更新。
+const DAY_NIGHT_UPDATE_FRAMES = 12;
+const dayNightSkyColorPair = [new THREE.Color(), new THREE.Color()];
+let dayNightFrameCounter = 0;
+let lastDayNightHour = null;
+
+function resolveDayNightSegment(hour) {
+  const normalized = normalizeHour(hour);
+  if (normalized >= 4 && normalized < 8) return { from: 0, to: 1, progress: (normalized - 4) / 4 };
+  if (normalized >= 8 && normalized < 15) return { from: 1, to: 2, progress: (normalized - 8) / 7 };
+  if (normalized >= 15 && normalized < 17) return { from: 2, to: 3, progress: (normalized - 15) / 2 };
+  if (normalized >= 17 && normalized < 19) return { from: 3, to: 4, progress: (normalized - 17) / 2 };
+  if (normalized >= 19 && normalized < 22) return { from: 4, to: 5, progress: (normalized - 19) / 3 };
+  const wrapped = normalized >= 22 ? normalized : normalized + 24;
+  return { from: 5, to: 0, progress: (wrapped - 22) / 6 };
+}
+
+function updateDayNight(hour) {
+  dayNightFrameCounter += 1;
+  const jumped = lastDayNightHour === null || Math.abs(hour - lastDayNightHour) > 0.5;
+  if (!jumped && dayNightFrameCounter < DAY_NIGHT_UPDATE_FRAMES) return;
+  dayNightFrameCounter = 0;
+  lastDayNightHour = hour;
+
+  const { from, to, progress } = resolveDayNightSegment(hour);
+  const start = DAY_NIGHT_FRAMES[from];
+  const end = DAY_NIGHT_FRAMES[to];
+  const t = THREE.MathUtils.clamp(progress, 0, 1);
+
+  ambientLight.color.lerpColors(start.ambientColor, end.ambientColor, t);
+  ambientLight.intensity = THREE.MathUtils.lerp(start.ambient.intensity, end.ambient.intensity, t);
+  sun.color.lerpColors(start.sunColor, end.sunColor, t);
+  sun.intensity = THREE.MathUtils.lerp(start.sun.intensity, end.sun.intensity, t);
+  sun.position.lerpVectors(start.sunPosition, end.sunPosition, t);
+
+  scene.fog.color.lerpColors(start.fogColor, end.fogColor, t);
+  scene.fog.density = THREE.MathUtils.lerp(start.fog.density, end.fog.density, t);
+
+  dayNightSkyColorPair[0].lerpColors(start.skyColors[0], end.skyColors[0], t);
+  dayNightSkyColorPair[1].lerpColors(start.skyColors[1], end.skyColors[1], t);
+  const gradient = skyContext.createLinearGradient(0, 0, 0, 256);
+  gradient.addColorStop(0, `#${dayNightSkyColorPair[0].getHexString()}`);
+  gradient.addColorStop(1, `#${dayNightSkyColorPair[1].getHexString()}`);
+  skyContext.fillStyle = gradient;
+  skyContext.fillRect(0, 0, 8, 256);
+  scene.background.needsUpdate = true;
+
+  livestockSpriteSystem.setGlowOpacity({
+    normal: THREE.MathUtils.lerp(start.glowOpacity.normal, end.glowOpacity.normal, t),
+    attention: THREE.MathUtils.lerp(start.glowOpacity.attention, end.glowOpacity.attention, t),
+    abnormal: THREE.MathUtils.lerp(start.glowOpacity.abnormal, end.glowOpacity.abnormal, t)
+  });
+}
+
 function applySimulationHour(hour) {
   applyOfflineState(hour);
   updateLivestockMotion(hour);
   syncMessageTimeline(hour);
   checkProhibitedModal(hour);
+  setSettlementOutlineVisible(isNightHour(hour));
+  updateDayNight(hour);
 }
 
 // 06:00-07:00 出牧 · 07:00-17:00 放牧 · 17:00-18:00 归牧 · 18:00-06:00 休息区休息
@@ -912,7 +1125,27 @@ function updateSimulationUi() {
   if (simulationTimeLabel) {
     simulationTimeLabel.textContent = `${formatSimulationHour(hour)} · ${phaseLabelAtHour(hour)}`;
   }
+  if (headerSimDay) headerSimDay.textContent = `第 ${dayIndexAtHour(simulationHour)} 天`;
+  if (headerSimTime) headerSimTime.textContent = formatSimulationHour(hour);
+  if (headerSimPhase) {
+    const phase = phaseLabelAtHour(hour);
+    if (headerSim.dataset.phase !== phase) headerSim.dataset.phase = phase;
+    if (headerSimPhase.textContent !== phase) headerSimPhase.textContent = phase;
+  }
+  if (headerSimProgress) headerSimProgress.style.width = `${(simulationHour / SIMULATION_TOTAL_HOURS) * 100}%`;
+  if (topbar) {
+    const theme = isNightHour(hour) ? 'night' : 'day';
+    if (topbar.dataset.timeTheme !== theme) topbar.dataset.timeTheme = theme;
+  }
   if (simulationToggle) simulationToggle.textContent = simulationRunning ? '暂停' : '继续';
+  if (simulationTime) simulationTime.disabled = !simulationRunning;
+}
+
+function setSimulationPauseSource(source, paused) {
+  if (paused) simulationPauseSources.add(source);
+  else simulationPauseSources.delete(source);
+  simulationRunning = simulationPauseSources.size === 0;
+  updateSimulationUi();
 }
 
 function setSimulationHour(value) {
@@ -985,11 +1218,40 @@ function formatOfflineDuration(seconds) {
   return hours > 0 ? `${hours} 小时 ${minutes} 分钟` : `${minutes} 分钟`;
 }
 
+function getPreviewLocation(animal) {
+  let state = previewLocationState.get(animal);
+  if (!state) {
+    state = {
+      initialLongitude: animal.telemetry.location.longitude,
+      initialLatitude: animal.telemetry.location.latitude,
+      lastViewedHour: simulationHour,
+      totalHours: 0,
+      visitCount: 0
+    };
+    previewLocationState.set(animal, state);
+  }
+
+  const elapsedHours = Math.max(0, simulationHour - state.lastViewedHour);
+  state.totalHours += elapsedHours;
+  state.lastViewedHour = simulationHour;
+  state.visitCount += 1;
+
+  const distanceMeters = Math.min(360, 80 + state.totalHours * 24);
+  const angle = ((animal.id.length * 37 + state.visitCount * 71) % 360) * Math.PI / 180;
+  const northMeters = Math.sin(angle) * distanceMeters;
+  const eastMeters = Math.cos(angle) * distanceMeters;
+  const latitude = state.initialLatitude + northMeters / METERS_PER_DEGREE_LATITUDE;
+  const longitude = state.initialLongitude + eastMeters / (METERS_PER_DEGREE_LATITUDE * Math.cos(state.initialLatitude * Math.PI / 180));
+
+  return { longitude, latitude };
+}
+
 function openDetails(object) {
+  hideModelPreview();
   if (object.userData.kind === 'animal' && hoveredArea) setHoveredArea(null);
   if (selectedObject?.userData.kind === 'animal') livestockSpriteSystem.setSelected(selectedObject, false);
   selectedObject = object;
-  modelPreview.hidden = object.userData.kind !== 'animal';
+  modelPreviewSection.hidden = object.userData.kind !== 'animal';
   detailPanel.dataset.kind = object.userData.kind;
   if (object.userData.kind === 'animal') {
     const animal = object.userData.animal;
@@ -1017,6 +1279,7 @@ function openDetails(object) {
         metricRow('心率', metrics.heartRate),
         metricRow('反刍次数', metrics.rumination)
       ], { collapsible: true, open: false })];
+    const previewLocation = getPreviewLocation(animal);
     detailContent.innerHTML = [
       detailSection('基础信息', [
         ['编号', animal.profile.livestockId],
@@ -1027,10 +1290,11 @@ function openDetails(object) {
       ]),
       ...statusSections,
       detailSection('位置信息', [
-        ['经纬度坐标', `${animal.telemetry.location.longitude.toFixed(5)}° E<br>${animal.telemetry.location.latitude.toFixed(5)}° N`],
+        ['经纬度坐标', `${previewLocation.longitude.toFixed(5)}° E<br>${previewLocation.latitude.toFixed(5)}° N`],
         ['数据更新时间', formatDateTime(animal.telemetry.recordedAt)]
       ])
     ].join('');
+    showModelPreview(animal.profile.type);
   } else if (object.userData.kind === 'area') {
     const area = object.userData.area;
     const metrics = getAreaMetrics(area, livestock);
@@ -1047,20 +1311,16 @@ function openDetails(object) {
     detailContent.innerHTML = rows([['经度', `${object.userData.longitude.toFixed(3)}° E`], ['纬度', `${object.userData.latitude.toFixed(3)}° N`]]);
   }
   detailPanel.hidden = false;
+  setSimulationPauseSource('detail-panel', object.userData.kind === 'animal');
 }
 
 function closeDetails() {
   if (selectedObject?.userData.kind === 'animal') livestockSpriteSystem.setSelected(selectedObject, false);
   selectedObject = null;
-  modelPreview.hidden = true;
+  hideModelPreview();
   delete detailPanel.dataset.kind;
   detailPanel.hidden = true;
-  // 详情面板是从禁牧区弹窗的「查看详情」打开的 → 关闭后恢复时间轴。
-  if (modalPausedSimulation) {
-    simulationRunning = true;
-    updateSimulationUi();
-    modalPausedSimulation = false;
-  }
+  setSimulationPauseSource('detail-panel', false);
 }
 
 function showSceneTooltip(text, event) {
@@ -1141,7 +1401,7 @@ function pick(event) {
     : [...animalSprites.filter((sprite) => sprite.visible), ...areaMeshes];
   const intersections = raycaster.intersectObjects(clickable, false);
   if (intersections.length) openDetails(intersections[0].object);
-  else if (!animalDetailsOpen) closeDetails();
+  else closeDetails();
 }
 
 renderer.domElement.addEventListener('pointerdown', (event) => pointerDown.set(event.clientX, event.clientY));
@@ -1156,13 +1416,21 @@ renderer.domElement.addEventListener('pointerup', (event) => {
 statusFilter.addEventListener('change', updateFilters);
 ownerFilter.addEventListener('change', updateFilters);
 document.querySelector('#close-detail').addEventListener('click', closeDetails);
-simulationTime?.addEventListener('input', (event) => setSimulationHour(event.target.value));
+simulationTime?.addEventListener('input', (event) => {
+  if (simulationRunning) setSimulationHour(event.target.value);
+});
 simulationSpeed?.addEventListener('change', (event) => {
   simulationHoursPerSecond = Number(event.target.value);
 });
 simulationToggle?.addEventListener('click', () => {
-  simulationRunning = !simulationRunning;
-  updateSimulationUi();
+  if (simulationPauseSources.has('manual')) {
+    setSimulationPauseSource('manual', false);
+  } else if (simulationRunning) {
+    setSimulationPauseSource('manual', true);
+  }
+});
+detailPanel.addEventListener('click', (event) => {
+  if (event.target === detailPanel) closeDetails();
 });
 ['pointerdown', 'pointerup', 'pointermove', 'wheel'].forEach((eventName) => {
   detailPanel.addEventListener(eventName, (event) => event.stopPropagation());
@@ -1190,17 +1458,16 @@ function connectMapEvents(tileMap) {
 function setupProhibitedModal() {
   if (!prohibitedModal) return;
   prohibitedModalDismiss?.addEventListener('click', hideProhibitedModal);
+  prohibitedModal.querySelector('.prohibited-modal-backdrop')?.addEventListener('click', hideProhibitedModal);
   prohibitedModalDetail?.addEventListener('click', () => {
-    // 只隐藏弹窗，不恢复时间轴——等详情面板关闭后再恢复。
-    if (prohibitedModal) prohibitedModal.hidden = true;
-    if (prohibitedEntry?.animal) {
+    if (prohibitedEntry?.animal?.sprite) {
       const sprite = prohibitedEntry.animal.sprite;
-      if (sprite) {
-        openDetails(sprite);
-        controls.target.copy(sprite.position);
-        camera.lookAt(sprite.position);
-      }
+      openDetails(sprite);
+      controls.target.copy(sprite.position);
+      camera.lookAt(sprite.position);
     }
+    prohibitedModal.hidden = true;
+    setSimulationPauseSource('prohibited-modal', false);
   });
 }
 
@@ -1211,22 +1478,13 @@ function showProhibitedModal(entry) {
     prohibitedModalBody.textContent = `${entry.ownerName} ${entry.animalId} 于${formatSimulationStamp(prohibitedActualEntryHour ?? entry.startHour)}进入东南禁牧区，已自动提醒牧民。`;
   }
   prohibitedModal.hidden = false;
-  // 自动暂停模拟时钟，关闭弹窗时再恢复。
-  modalPausedSimulation = simulationRunning;
-  if (simulationRunning) {
-    simulationRunning = false;
-    updateSimulationUi();
-  }
+  setSimulationPauseSource('prohibited-modal', true);
 }
 
 function hideProhibitedModal() {
   if (!prohibitedModal) return;
   prohibitedModal.hidden = true;
-  if (modalPausedSimulation) {
-    simulationRunning = true;
-    updateSimulationUi();
-  }
-  modalPausedSimulation = false;
+  setSimulationPauseSource('prohibited-modal', false);
 }
 
 // 每帧实时检测：光点经纬度是否落在禁牧区多边形内。
@@ -1247,7 +1505,7 @@ function checkProhibitedModal(hour) {
 
 async function bootstrap() {
   if (!token || token === 'your_token_here') {
-    showFatal('缺少天地图 Key', '请在 .env.local 中配置 VITE_TIANDITU_TOKEN');
+    showFatal('缺少天地图 Key', '请在 .env.local 中配置 TIANDITU_TOKEN');
     return;
   }
   const sources = createMapSources(token);
@@ -1319,7 +1577,7 @@ function animate(time) {
   controls.update();
   if (map) map.update(camera);
   overflowMarkerLayer?.update(simulationHour);
-  livestockSpriteSystem.update(time, camera);
+  livestockSpriteSystem.update(time, camera, !simulationRunning);
   renderer.render(scene, camera);
 }
 
@@ -1331,6 +1589,22 @@ animate(0);
 // 全部由时间轴推导，不预置演示消息。
 messageFeed.clear();
 layoutMessageFeed();
+
+// 顶栏时钟：展示本机实时时间与日期。
+const clockTimeEl = document.querySelector('#clock-time');
+const clockDateEl = document.querySelector('#clock-date');
+const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+function updateHeaderClock() {
+  if (!clockTimeEl) return;
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  clockTimeEl.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  if (clockDateEl) {
+    clockDateEl.textContent = `${now.getFullYear()}.${pad(now.getMonth() + 1)}.${pad(now.getDate())} ${WEEKDAYS[now.getDay()]}`;
+  }
+}
+updateHeaderClock();
+setInterval(updateHeaderClock, 1000);
 
 window.__dayTwoOverflow = {
   schedule: overflowSchedule,
