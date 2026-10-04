@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import UniIcons from './uni-icons/uni-icons.vue'
+import { computed } from 'vue'
 
 const props = withDefaults(defineProps<{
   name: string
@@ -21,6 +22,8 @@ const iconNames: Record<string, string> = {
   close: 'closeempty',
   dashboard: 'home',
   device: 'gear',
+  eye: 'eye',
+  eyeSlash: 'eye-slash',
   home: 'home',
   livestock: 'staff',
   loading: 'spinner-cycle',
@@ -41,7 +44,7 @@ const iconNames: Record<string, string> = {
   wrench: 'gear',
 }
 
-const iconName = props.name in iconNames ? iconNames[props.name] : props.name
+const iconName = computed(() => props.name in iconNames ? iconNames[props.name] : props.name)
 </script>
 
 <template>
