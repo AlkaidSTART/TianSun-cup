@@ -64,3 +64,6 @@ services/api/data/*.tmp
 
 # 3D model generation scratch
 3d/*
+
+# pnpm local content-addressable store
+.pnpm-store/

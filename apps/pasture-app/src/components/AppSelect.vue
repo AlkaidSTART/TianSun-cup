@@ -36,9 +36,27 @@ function handleChange(event: { detail: { value: number | string } }) {
   emit('update:modelValue', option.value)
   emit('change', option.value)
 }
+function handleBrowserChange(event: Event) {
+  const value = (event.target as HTMLSelectElement).value
+  emit('update:modelValue', value)
+  emit('change', value)
+}
 </script>
 
 <template>
+  <!-- #ifdef H5 -->
+  <select
+    class="app-picker-control"
+    :class="{ placeholder: selectedIndex < 0 }"
+    :value="selectedIndex < 0 ? '' : props.modelValue"
+    :disabled="props.disabled"
+    @change="handleBrowserChange"
+  >
+    <option value="" disabled>{{ props.placeholder }}</option>
+    <option v-for="option in normalizedOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+  </select>
+  <!-- #endif -->
+  <!-- #ifndef H5 -->
   <picker
     :range="normalizedOptions"
     range-key="label"
@@ -50,4 +68,9 @@ function handleChange(event: { detail: { value: number | string } }) {
       {{ displayLabel }}
     </view>
   </picker>
+  <!-- #endif -->
 </template>
+
+<style scoped>
+select.app-picker-control { display: block; width: 100%; font-family: inherit; }
+</style>

@@ -217,6 +217,17 @@ export function initAdminAuth(onReady) {
     temporaryPassword: document.querySelector('#temporaryPassword'),
     copyTemporaryPassword: document.querySelector('#copyTemporaryPassword'),
   }
+  elements.loginScreen.addEventListener('click', (event) => {
+    const toggle = event.target.closest('[data-toggle-password]')
+    if (!toggle) return
+    const input = toggle.parentElement.querySelector('input[type="password"], input[type="text"]')
+    const reveal = input.type === 'password'
+    input.type = reveal ? 'text' : 'password'
+    toggle.querySelector('[data-eye]').hidden = reveal
+    toggle.querySelector('[data-eye-off]').hidden = !reveal
+    toggle.setAttribute('aria-label', reveal ? '\u9690\u85cf\u5bc6\u7801' : '\u663e\u793a\u5bc6\u7801')
+    toggle.setAttribute('aria-pressed', String(reveal))
+  })
   elements.loginForm.addEventListener('submit', signIn)
   elements.passwordForm.addEventListener('submit', changePassword)
   elements.logout.addEventListener('click', signOut)

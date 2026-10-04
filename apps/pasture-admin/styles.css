@@ -291,7 +291,13 @@ code { font-family: "SFMono-Regular", Consolas, monospace; }
 .admin-login-card form { display: grid; gap: 15px; }
 .admin-login-card label, .create-user-form label { display: grid; gap: 7px; color: #385548; font-size: 12px; font-weight: 700; }
 .admin-login-card input, .create-user-form input, .create-user-form select { min-width: 0; padding: 11px 12px; border: 1px solid #dce7de; border-radius: 10px; color: var(--ink); background: #fff; }
+.admin-login-card input:-webkit-autofill, .admin-login-card input:-webkit-autofill:hover, .admin-login-card input:-webkit-autofill:focus, .admin-login-card input:autofill { -webkit-text-fill-color: var(--ink); caret-color: var(--ink); -webkit-box-shadow: 0 0 0 1000px #fff inset; box-shadow: 0 0 0 1000px #fff inset; transition: background-color 9999s ease-out 0s; }
 .admin-login-card .button-primary { margin-top: 6px; padding: 12px; }
+.password-input-wrap { position: relative; display: block; }
+.admin-login-card .password-input-wrap input { box-sizing: border-box; width: 100%; padding-right: 64px; }
+.password-toggle { position: absolute; top: 50%; right: 10px; display: grid; place-items: center; width: 32px; height: 32px; padding: 6px; transform: translateY(-50%); border: 0; background: transparent; color: #52745f; cursor: pointer; }
+.password-toggle svg { display: block; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.password-toggle:focus-visible { outline: 2px solid #35634c; outline-offset: 2px; border-radius: 4px; }
 .admin-login-card .admin-login-error { min-height: 16px; margin-bottom: 0; color: #ba392f; }
 .users-panel { margin-top: 24px; overflow: hidden; }
 .create-user-form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; gap: 14px; align-items: end; padding: 20px; border-bottom: 1px solid var(--line); }

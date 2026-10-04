@@ -12,7 +12,7 @@ const routes: Record<AppView, string> = {
 }
 
 export function isAppView(value: string): value is AppView {
-  return value in routes
+  return Object.prototype.hasOwnProperty.call(routes, value)
 }
 
 export function navigateToView(view: string) {
@@ -24,10 +24,12 @@ export function navigateToView(view: string) {
   const currentRoute = pages[pages.length - 1]?.route
   if (currentRoute && `/${currentRoute}` === url) return
 
-  if (view === 'consultation') {
+  // Let uni-app update its router and page stack along with the browser URL.
+  if (currentRoute === 'pages/login/index') {
+    uni.reLaunch({ url })
+  } else if (view === 'consultation') {
     uni.navigateTo({ url })
-    return
+  } else {
+    uni.redirectTo({ url })
   }
-
-  uni.reLaunch({ url })
 }

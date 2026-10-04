@@ -108,11 +108,6 @@ function zoneLabelPosition(id: string) {
   return ZONE_LABEL_POSITIONS[id] ?? {}
 }
 
-function alertIcon(severity: AlertRecord['severity']) {
-  if (severity === 'bad') return TriangleAlert
-  return severity === 'warn' ? CircleAlert : WifiOff
-}
-
 async function loadDashboard() {
   try {
     const [livePositions, telemetrySummary, pastureZones, peak, pressure, openAlerts] = await Promise.all([
@@ -267,7 +262,9 @@ function openAlert(targetId: string) { showMessage(`已定位 ${targetId}`) }
                 @click="openAlert(item.targetId)"
               >
                 <div class="alert-icon" :class="item.severity === 'bad' ? 'red' : item.severity === 'warn' ? 'yellow' : 'gray'">
-                  <component :is="alertIcon(item.severity)" :size="13" />
+                  <TriangleAlert v-if="item.severity === 'bad'" :size="13" />
+                  <CircleAlert v-else-if="item.severity === 'warn'" :size="13" />
+                  <WifiOff v-else :size="13" />
                 </div>
                 <div class="alert-copy">
                   <strong>{{ item.title }}</strong>
