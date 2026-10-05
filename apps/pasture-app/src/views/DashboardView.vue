@@ -166,7 +166,7 @@ function openAlert(targetId: string) { showMessage(`已定位 ${targetId}`) }
 </script>
 
 <template>
-  <PageChrome active="dashboard" bell @refresh="loadDashboard" @bell="showMessage('暂无新的系统通知')">
+  <PageChrome active="dashboard">
 
     <main class="content">
       <div class="welcome">

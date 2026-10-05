@@ -158,7 +158,7 @@ onUnmounted(stopPolling)
 </script>
 
 <template>
-  <PageChrome active="profile" route-view="consultation" :refresh="false">
+  <PageChrome active="profile" route-view="consultation">
     <main class="content">
       <button class="consult-back" type="button" @click="goBack"><AppIcon name="back" :size="16" />返回</button>
       <div class="page-head">

@@ -107,7 +107,7 @@ onMounted(load)
 </script>
 
 <template>
-  <PageChrome active="alerts" @refresh="load">
+  <PageChrome active="alerts">
     <main class="content">
       <div class="page-head">
         <div>

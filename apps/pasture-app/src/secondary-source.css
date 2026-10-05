@@ -379,6 +379,10 @@ a.list-row:hover {
   background: var(--bg);
   font: 13px var(--font-body);
 }
+/* uni-input needs an explicit height so its inner input does not collapse. */
+.todo-field input {
+  height: 42px;
+}
 .todo-field .app-picker-control {
   min-height: 39px;
   border: 1px solid var(--border);

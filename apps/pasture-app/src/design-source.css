@@ -79,22 +79,6 @@ body {
   gap: 10px;
   align-items: center;
 }
-.icon-btn {
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: var(--surface);
-  cursor: pointer;
-  color: var(--fg-2);
-  display: inline-grid;
-  place-items: center;
-  line-height: 0;
-}
-.icon-btn > svg {
-  display: block;
-}
 .avatar {
   width: 30px;
   height: 30px;
