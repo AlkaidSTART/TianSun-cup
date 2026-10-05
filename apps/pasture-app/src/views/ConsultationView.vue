@@ -228,7 +228,7 @@ onUnmounted(() => {
         </button>
         <div class="vet-heading-copy">
           <h1 class="vet-title">AI 问诊助手</h1>
-          <p class="vet-subtitle">牧场智控 · 在线问诊</p>
+          <p class="vet-subtitle">牧场智控 · AI 问诊</p>
         </div>
         <button class="vet-new" type="button" :disabled="streaming" @click="newConversation">＋ 新对话</button>
       </header>
