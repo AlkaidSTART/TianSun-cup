@@ -39,15 +39,15 @@ npm run build:mp-weixin --workspace @tiansun/pasture-app
 
 构建产物位于 `apps/pasture-app/dist/build/mp-weixin`，使用微信开发者工具导入该目录即可。
 
-## 本地开发
+## 本地开发（Docker 后端）
 
-先启动 API：
+先在根目录 `.env` 配置 MaxKB 等服务端变量，再启动 Docker API：
 
 ```bash
-npm run dev:api
+docker compose up -d --build
 ```
 
-另开终端按需启动要调试的 web 端：
+不要同时运行 `npm run dev:api`：它会与 Docker 争用 3000 端口，并使用另一份本地 SQLite 数据。另开终端按需启动要调试的 web 端：
 
 ```bash
 npm run dev:h5     # H5（uni-app），默认 http://localhost:5173/app/
@@ -65,7 +65,7 @@ npm run dev:mp-weixin --workspace @tiansun/pasture-app
 
 随后使用微信开发者工具导入 `apps/pasture-app/dist/dev/mp-weixin`。
 
-H5 和后台开发服务器都会将 `/api` 代理到 `http://127.0.0.1:3000`，可通过 `API_PROXY_TARGET` 覆盖。Web 大屏地图 token 可通过 `apps/pasture-3d/.env` 中的 `TIANDITU_TOKEN` 配置；未配置时不影响构建，但地图服务可能无法按预期加载。API 默认监听 `0.0.0.0:3000`，支持 `HOST`、`PORT`、`LIVESTOCK_DB_FILE` 和 `LIVESTOCK_SEED_FILE` 环境变量。
+H5 和后台开发服务器默认将 `/api` 代理到 Docker 发布的 `http://127.0.0.1:3000`，可通过 `API_PROXY_TARGET` 覆盖（例如 Compose 修改了主机端口时）。Web 大屏地图 token 可通过 `apps/pasture-3d/.env` 中的 `TIANDITU_TOKEN` 配置；未配置时不影响构建，但地图服务可能无法按预期加载。API 默认监听 `0.0.0.0:3000`，支持 `HOST`、`PORT`、`LIVESTOCK_DB_FILE` 和 `LIVESTOCK_SEED_FILE` 环境变量。
 
 “牲畜”页面可新增牲畜档案，“我的”页面可新增待办事项；数据会通过 API 写入 SQLite。主页“今日代办”会自动筛选并展示当天事项。
 

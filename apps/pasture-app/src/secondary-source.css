@@ -728,7 +728,8 @@ a.list-row:hover {
   font-size: 13px;
   line-height: 1.5;
 }
-.bubble.doctor {
+.bubble.doctor,
+.bubble.assistant {
   border: 1px solid var(--border-soft);
   border-top-left-radius: 4px;
   background: #fff;

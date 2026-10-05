@@ -20,6 +20,7 @@ export default defineConfig(({ mode }) => {
       host: '0.0.0.0',
       port: 5173,
       strictPort: true,
+      // By default the API is the Docker Compose service published on host port 3000.
       proxy: {
         '/api': {
           target: env.API_PROXY_TARGET || 'http://127.0.0.1:3000',

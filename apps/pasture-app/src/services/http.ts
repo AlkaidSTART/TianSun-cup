@@ -13,6 +13,7 @@ interface RequestOptions {
   method?: RequestMethod
   data?: string | Record<string, unknown> | ArrayBuffer
   headers?: Record<string, string>
+  timeout?: number
 }
 
 let configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -49,6 +50,7 @@ export function request<T>(path: string, options: RequestOptions = {}): Promise<
     uni.request({
       url: `${apiBaseUrl}${path}`,
       method: (options.method || 'GET') as UniApp.RequestOptions['method'],
+      timeout: options.timeout,
       data: options.data as UniApp.RequestOptions['data'],
       header: {
         'Content-Type': 'application/json',
