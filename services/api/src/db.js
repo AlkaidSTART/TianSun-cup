@@ -231,7 +231,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS consultation_messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     consultation_id INTEGER NOT NULL REFERENCES consultations(id) ON DELETE CASCADE,
-    role TEXT NOT NULL CHECK (role IN ('doctor', 'user')),
+    role TEXT NOT NULL CHECK (role IN ('doctor', 'user', 'assistant')),
     author_name TEXT NOT NULL,
     text TEXT NOT NULL,
     created_at TEXT NOT NULL
@@ -241,7 +241,37 @@ db.exec(`
     ON consultation_messages(consultation_id, created_at);
 `)
 
-db.exec('PRAGMA user_version = 2;')
+// Preserve historical human replies while allowing clearly labeled AI messages.
+// SQLite cannot alter a CHECK constraint in place, so upgrade existing databases.
+const messageTableSql = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'consultation_messages'").get()?.sql || ''
+if (!messageTableSql.includes("'assistant'")) {
+  db.exec('BEGIN IMMEDIATE')
+  try {
+    db.exec(`
+      CREATE TABLE consultation_messages_upgrade (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        consultation_id INTEGER NOT NULL REFERENCES consultations(id) ON DELETE CASCADE,
+        role TEXT NOT NULL CHECK (role IN ('doctor', 'user', 'assistant')),
+        author_name TEXT NOT NULL,
+        text TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+      INSERT INTO consultation_messages_upgrade (id, consultation_id, role, author_name, text, created_at)
+        SELECT id, consultation_id, role, author_name, text, created_at FROM consultation_messages;
+      DROP TABLE consultation_messages;
+      ALTER TABLE consultation_messages_upgrade RENAME TO consultation_messages;
+      CREATE INDEX idx_consult_messages ON consultation_messages(consultation_id, created_at);
+    `)
+    db.exec('COMMIT')
+  } catch (error) {
+    db.exec('ROLLBACK')
+    throw error
+  }
+}
+if (!hasColumn('consultations', 'maxkb_chat_id')) {
+  db.exec('ALTER TABLE consultations ADD COLUMN maxkb_chat_id TEXT;')
+}
+db.exec('PRAGMA user_version = 3;')
 const insertStatement = db.prepare(`
   INSERT INTO livestock (
     id, species, breed, sex, source_type, mother_id, birth_date, purchase_date,

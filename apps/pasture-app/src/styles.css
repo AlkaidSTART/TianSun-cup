@@ -24,6 +24,11 @@
   --amber: #b88635;
   --red: #c66554;
   --shadow: 0 12px 35px rgba(42, 67, 54, 0.08);
+  /* Top safe area. On the native App this resolves to the status-bar height that
+     the uni-app runtime injects as --status-bar-height; on H5 / notched screens it
+     falls back to the system safe-area inset, so page content never overlaps the
+     phone status bar. */
+  --app-safe-top: max(var(--status-bar-height, 0px), env(safe-area-inset-top, 0px));
 }
 
 * {
@@ -31,7 +36,7 @@
 }
 
 /* 还原原生 button 观感：去掉 uni-app 注入的按钮皮肤。
-   uni-app 会把模板里的 <button> 编译为 uni-button（H5）/原生 button（小程序），
+   uni-app 会把模板里的 <button> 编译为 uni-button（H5）/原生 button（App），
    默认自带 #f8f8f8 灰底、::after 1px 灰描边、14px 内边距、18px 字号等。
    加上 html 后代选择器优先级为 0,0,2：高于运行时皮肤（0,0,1），
    但仍低于项目中所有 class 选择器，不会影响各按钮自己的样式。 */
@@ -104,8 +109,8 @@ button:focus-visible {
 }
 
 .topbar {
-  height: 75px;
-  padding: max(16px, env(safe-area-inset-top)) 22px 10px;
+  height: calc(75px + var(--app-safe-top, 0px));
+  padding: max(16px, var(--app-safe-top, 0px)) 22px 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;

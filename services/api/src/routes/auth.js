@@ -26,7 +26,7 @@ function clearSessionCookie(request, response) {
 }
 
 function isTokenClient(request) {
-  return ['mp-weixin', 'app-plus'].includes(request.get('x-client-platform'))
+  return request.get('x-client-platform') === 'app-plus'
 }
 
 const router = Router()

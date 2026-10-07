@@ -1,12 +1,9 @@
 import { db } from './db.js'
 import { ApiError, actorScope, cleanText, localDateValue, readPagination } from './shared.js'
 
-// No dedicated veterinarian accounts exist yet, so consultations are assigned to
-// this display name. An admin replying takes the doctor role; a real roster
-// would replace this constant.
-const defaultDoctorName = '张医生'
+const aiName = 'AI 问诊助手'
 
-const statusLabels = { open: '待接诊', answered: '已回复', closed: '已关闭' }
+const statusLabels = { open: '等待 AI 回复', answered: 'AI 已回复', closed: '已关闭' }
 const allowedStatuses = new Set(['open', 'answered', 'closed'])
 
 const consultationSelect = `
@@ -35,7 +32,7 @@ function parseSymptoms(value) {
   }
 }
 
-function isDoctor(actor) {
+function isAdmin(actor) {
   return actor?.role === 'admin'
 }
 
@@ -74,7 +71,7 @@ function findConsultation(idOrCode, actor) {
     ? db.prepare('SELECT * FROM consultations WHERE id = ?').get(numericId)
     : findByCode(raw)
   if (!row) return undefined
-  if (!isDoctor(actor) && row.user_id !== actor.id) return undefined
+  if (!isAdmin(actor) && row.user_id !== actor.id) return undefined
   return row
 }
 
@@ -95,10 +92,11 @@ function nextCode(now = new Date()) {
   return `${prefix}${String(sequence).padStart(3, '0')}`
 }
 
-function buildTitle({ livestockId, pastureId, symptoms }) {
-  const subject = livestockId || pastureId || '未指定对象'
+function buildTitle({ livestockId, pastureId, symptoms, description }) {
+  const subject = livestockId || pastureId || 'AI 问诊'
   const first = symptoms[0]
-  return first ? `${subject} · ${first}` : subject
+  if (first) return `${subject} · ${first}`
+  return livestockId || pastureId ? subject : description.slice(0, 24) || subject
 }
 
 export async function listConsultations(query = {}, actor) {
@@ -172,7 +170,7 @@ export async function createConsultation(payload = {}, actor) {
   const now = new Date()
   const nowIso = now.toISOString()
   const code = nextCode(now)
-  const title = buildTitle({ livestockId, pastureId, symptoms })
+  const title = buildTitle({ livestockId, pastureId, symptoms, description })
 
   db.exec('BEGIN IMMEDIATE')
   try {
@@ -181,12 +179,19 @@ export async function createConsultation(payload = {}, actor) {
         code, user_id, livestock_id, pasture_id, symptoms, description,
         title, status, doctor_name, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?)
-    `).run(code, actor.id, livestockId, pastureId, JSON.stringify(symptoms), description, title, defaultDoctorName, nowIso, nowIso)
+    `).run(code, actor.id, livestockId, pastureId, JSON.stringify(symptoms), description, title, aiName, nowIso, nowIso)
 
+    const initialQuestion = [
+      livestockId ? `耳标号：${livestockId}` : null,
+      pastureId ? `草场：${pastureId}` : null,
+      symptoms.length ? `症状：${symptoms.join('、')}` : null,
+      description ? `补充描述：${description}` : null,
+    ].filter(Boolean).join('\n')
+    const userMessage = !livestockId && !pastureId && !symptoms.length ? description : initialQuestion
     db.prepare(`
       INSERT INTO consultation_messages (consultation_id, role, author_name, text, created_at)
-      VALUES (?, 'doctor', ?, ?, ?)
-    `).run(result.lastInsertRowid, defaultDoctorName, '你好，我是张医生。请先告诉我牲畜耳标号、体温和症状持续时间。', nowIso)
+      VALUES (?, 'user', ?, ?, ?)
+    `).run(result.lastInsertRowid, actor.displayName, userMessage, nowIso)
 
     db.exec('COMMIT')
     return getConsultation(String(result.lastInsertRowid), actor)
@@ -198,23 +203,23 @@ export async function createConsultation(payload = {}, actor) {
 
 export async function createMessage(idOrCode, payload = {}, actor) {
   const row = visibleOr404(idOrCode, actor)
+  if (row.userId !== actor.id) throw new ApiError(403, '只能在自己的问诊中发送消息')
   if (row.status === 'closed') throw new ApiError(400, '该问诊已关闭')
 
   const text = cleanText(payload.text)
   if (!text) throw new ApiError(400, '请输入消息内容', { text: '请输入消息内容' })
   if (text.length > 1000) throw new ApiError(400, '消息不能超过 1000 个字符', { text: '消息不能超过 1000 个字符' })
+  const last = db.prepare('SELECT role FROM consultation_messages WHERE consultation_id = ? ORDER BY id DESC LIMIT 1').get(row.id)
+  if (row.status === 'open' && last?.role === 'user') throw new ApiError(409, '上一条消息尚未收到 AI 回复，请重试')
 
-  const role = isDoctor(actor) ? 'doctor' : 'user'
   const nowIso = new Date().toISOString()
-  const nextStatus = role === 'doctor' ? 'answered' : row.status
-
   db.exec('BEGIN IMMEDIATE')
   try {
     const result = db.prepare(`
       INSERT INTO consultation_messages (consultation_id, role, author_name, text, created_at)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(row.id, role, actor.displayName, text, nowIso)
-    db.prepare('UPDATE consultations SET status = ?, updated_at = ? WHERE id = ?').run(nextStatus, nowIso, row.id)
+      VALUES (?, 'user', ?, ?, ?)
+    `).run(row.id, actor.displayName, text, nowIso)
+    db.prepare("UPDATE consultations SET status = 'open', updated_at = ? WHERE id = ?").run(nowIso, row.id)
     db.exec('COMMIT')
     const message = db.prepare(`
       SELECT id, role, author_name AS authorName, text, created_at AS createdAt
@@ -227,8 +232,44 @@ export async function createMessage(idOrCode, payload = {}, actor) {
   }
 }
 
+export function getPendingAIQuestion(idOrCode, actor) {
+  const row = visibleOr404(idOrCode, actor)
+  if (row.userId !== actor.id) throw new ApiError(403, '只能继续自己的 AI 问诊')
+  if (row.status === 'closed') throw new ApiError(400, '该问诊已关闭')
+  const last = db.prepare('SELECT id, role, text FROM consultation_messages WHERE consultation_id = ? ORDER BY id DESC LIMIT 1').get(row.id)
+  if (row.status !== 'open' || last?.role !== 'user') throw new ApiError(400, '没有待回复的消息')
+  const chatId = db.prepare('SELECT maxkb_chat_id AS chatId FROM consultations WHERE id = ?').get(row.id)?.chatId || null
+  const isInitialQuestion = ['耳标号：', '草场：', '症状：', '补充描述：'].some((prefix) => last.text.startsWith(prefix))
+  const caseContext = !chatId && !isInitialQuestion && (row.livestockId || row.pastureId || parseSymptoms(row.symptoms).length)
+    ? [`耳标号：${row.livestockId || '未填写'}`, `症状：${parseSymptoms(row.symptoms).join('、') || '未填写'}`, `描述：${row.description || '未填写'}`, `当前问题：${last.text}`].join('\n')
+    : last.text
+  return { id: String(row.id), messageId: last.id, question: caseContext, chatId }
+}
+
+export function saveAIReply(idOrCode, expectedMessageId, answer, chatId, actor) {
+  const row = visibleOr404(idOrCode, actor)
+  const last = db.prepare('SELECT id, role FROM consultation_messages WHERE consultation_id = ? ORDER BY id DESC LIMIT 1').get(row.id)
+  if (row.status !== 'open' || last?.id !== expectedMessageId || last.role !== 'user') {
+    throw new ApiError(409, '问诊已更新，请刷新后重试')
+  }
+  const nowIso = new Date().toISOString()
+  db.exec('BEGIN IMMEDIATE')
+  try {
+    db.prepare(`
+      INSERT INTO consultation_messages (consultation_id, role, author_name, text, created_at)
+      VALUES (?, 'assistant', ?, ?, ?)
+    `).run(row.id, aiName, answer, nowIso)
+    db.prepare("UPDATE consultations SET status = 'answered', maxkb_chat_id = COALESCE(?, maxkb_chat_id), updated_at = ? WHERE id = ?")
+      .run(chatId, nowIso, row.id)
+    db.exec('COMMIT')
+  } catch (error) {
+    db.exec('ROLLBACK')
+    throw error
+  }
+}
+
 export async function updateConsultation(idOrCode, payload = {}, actor) {
-  if (!isDoctor(actor)) throw new ApiError(403, '只有管理员可以更新问诊状态')
+  if (!isAdmin(actor)) throw new ApiError(403, '只有管理员可以更新问诊状态')
   const row = visibleOr404(idOrCode, actor)
   const status = cleanText(payload.status)
   if (status !== 'closed') throw new ApiError(400, '问诊状态不正确', { status: '只支持关闭问诊' })

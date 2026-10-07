@@ -4,7 +4,7 @@
 
 本仓库采用 npm workspaces 管理前端和统一 API 服务：
 
-- `apps/pasture-app`：H5 端，uni-app（Vue 3 + Vite）跨端应用，可构建 H5 与微信小程序。
+- `apps/pasture-app`：安卓 App（牧民端），uni-app（Vue 3 + Vite）开发，可构建原生 App（Android/iOS）；同一工程可构建 H5 用于本地预览。
 - `apps/pasture-admin`：后台管理端，Vite 构建的牲畜档案管理界面。
 - `apps/pasture-3d`：Web 大屏端，Three.js / Vite 三维放牧监测，包含主页面和 legacy 页面。
 - `services/api`：Express API 与 SQLite 数据层，仅负责接口和静态资源托管，不再保存前端源码。
@@ -31,23 +31,23 @@ npm test
 
 `npm run build` 会构建 H5 端、后台管理端和 Web 大屏端；API 使用 Node.js 直接运行，不需要单独编译。
 
-微信小程序构建：
+安卓 App 构建：
 
 ```bash
-npm run build:mp-weixin --workspace @tiansun/pasture-app
+npm run build:app-plus --workspace @tiansun/pasture-app
 ```
 
-构建产物位于 `apps/pasture-app/dist/build/mp-weixin`，使用微信开发者工具导入该目录即可。
+构建产物位于 `apps/pasture-app/dist/build/app`，使用 HBuilderX 打包为安卓 App 安装包。
 
-## 本地开发
+## 本地开发（Docker 后端）
 
-先启动 API：
+先在根目录 `.env` 配置 MaxKB 等服务端变量，再启动 Docker API：
 
 ```bash
-npm run dev:api
+docker compose up -d --build
 ```
 
-另开终端按需启动要调试的 web 端：
+不要同时运行 `npm run dev:api`：它会与 Docker 争用 3000 端口，并使用另一份本地 SQLite 数据。另开终端按需启动要调试的 web 端：
 
 ```bash
 npm run dev:h5     # H5（uni-app），默认 http://localhost:5173/app/
@@ -57,15 +57,7 @@ npm run dev:screen # Web 大屏（Three.js），默认 http://localhost:5175/3d/
 
 `dev:app` 与 `dev:3d` 仍保留为兼容别名，分别等价于 `dev:h5` 和 `dev:screen`。三个开发服务器端口固定，可同时运行。
 
-微信小程序开发：
-
-```bash
-npm run dev:mp-weixin --workspace @tiansun/pasture-app
-```
-
-随后使用微信开发者工具导入 `apps/pasture-app/dist/dev/mp-weixin`。
-
-H5 和后台开发服务器都会将 `/api` 代理到 `http://127.0.0.1:3000`，可通过 `API_PROXY_TARGET` 覆盖。Web 大屏地图 token 可通过 `apps/pasture-3d/.env` 中的 `TIANDITU_TOKEN` 配置；未配置时不影响构建，但地图服务可能无法按预期加载。API 默认监听 `0.0.0.0:3000`，支持 `HOST`、`PORT`、`LIVESTOCK_DB_FILE` 和 `LIVESTOCK_SEED_FILE` 环境变量。
+H5 和后台开发服务器默认将 `/api` 代理到 Docker 发布的 `http://127.0.0.1:3000`，可通过 `API_PROXY_TARGET` 覆盖（例如 Compose 修改了主机端口时）。Web 大屏地图 token 可通过 `apps/pasture-3d/.env` 中的 `TIANDITU_TOKEN` 配置；未配置时不影响构建，但地图服务可能无法按预期加载。API 默认监听 `0.0.0.0:3000`，支持 `HOST`、`PORT`、`LIVESTOCK_DB_FILE` 和 `LIVESTOCK_SEED_FILE` 环境变量。
 
 “牲畜”页面可新增牲畜档案，“我的”页面可新增待办事项；数据会通过 API 写入 SQLite。主页“今日代办”会自动筛选并展示当天事项。
 
@@ -126,15 +118,15 @@ Docker 构建默认仍为 `/3d/`，无需额外配置。
 
 首次启动后运行 `npm run auth:bootstrap --workspace @tiansun/api -- --username admin --display-name 管理员` 创建初始管理员；若使用 Docker，改为 `docker compose exec app npm run auth:bootstrap --workspace @tiansun/api -- --username admin --display-name 管理员`。命令会在交互式终端隐藏输入密码，并将现有牲畜和待办归到该账号；它不能重复执行。随后到 `/admin/` 登录并创建其他用户。
 
-账户及用户业务数据均存于 SQLite（开发环境 `services/api/data/tiansun.sqlite`，Docker 中 `/app/services/api/data/tiansun.sqlite` 和 `livestock-data` 卷）。H5、小程序和管理后台业务 API 均要求登录；3D 静态演示页不需要登录。发布小程序前须配置真实 AppID，并在构建时设置 `VITE_API_BASE_URL` 为设备可访问的完整 API 地址。
+账户及用户业务数据均存于 SQLite（开发环境 `services/api/data/tiansun.sqlite`，Docker 中 `/app/services/api/data/tiansun.sqlite` 和 `livestock-data` 卷）。H5、安卓 App 和管理后台业务 API 均要求登录；3D 静态演示页不需要登录。打包安卓 App 前须在 `manifest.json` 配置真实 AppID，并在构建时设置 `VITE_APP_API_BASE_URL` 为设备可访问的完整 API 地址。
 
 ```powershell
-# 小程序构建示例；地址须指向实际部署的 API，不要使用手机自身的 localhost
-$env:VITE_API_BASE_URL = 'https://api.example.com/api'
-npm run build:mp-weixin --workspace @tiansun/pasture-app
+# 安卓 App 构建示例；地址须指向实际部署的 API，不要使用手机自身的 localhost
+$env:VITE_APP_API_BASE_URL = 'https://api.example.com/api'
+npm run build:app-plus --workspace @tiansun/pasture-app
 ```
 
-浏览器端使用 HttpOnly 会话 Cookie；微信小程序使用 Bearer 令牌。生产部署应通过 HTTPS 提供 API，避免在网络传输中暴露登录信息。
+浏览器端使用 HttpOnly 会话 Cookie；安卓 App 使用 Bearer 令牌。生产部署应通过 HTTPS 提供 API，避免在网络传输中暴露登录信息。
 
 ### HBuilderX 原生 App 连接 API
 

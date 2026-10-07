@@ -13,6 +13,9 @@ services:
       PORT: 3000
       LIVESTOCK_DB_FILE: /app/services/api/data/tiansun.sqlite
       LIVESTOCK_SEED_FILE: /app/seed/livestock.seed.json
+      MAXKB_BASE_URL: ${MAXKB_BASE_URL:-}
+      MAXKB_API_KEY: ${MAXKB_API_KEY:-}
+      MAXKB_TIMEOUT_MS: ${MAXKB_TIMEOUT_MS:-45000}
     ports:
       - "${PORT:-3000}:3000"
     volumes:

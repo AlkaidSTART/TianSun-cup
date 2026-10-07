@@ -309,7 +309,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <PageChrome active="livestock" @navigate="navigate" @refresh="refreshData">
+  <PageChrome active="livestock" @navigate="navigate">
     <main class="content">
       <div class="page-head">
         <div>

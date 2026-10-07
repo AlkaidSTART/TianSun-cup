@@ -4,6 +4,7 @@ import { promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { installMaxKBMock } from '../test-helpers/maxkb-mock.js'
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url))
 const seedFile = path.resolve(currentDir, '..', 'data', 'livestock.seed.json')
@@ -15,6 +16,7 @@ test('contract: responses keep the fields the mobile client renders', async () =
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tiansun-webcontract-'))
   process.env.LIVESTOCK_DB_FILE = path.join(tempDir, 'web.sqlite')
   process.env.LIVESTOCK_SEED_FILE = seedFile
+  const maxkb = installMaxKBMock()
   let store
   let server
   try {
@@ -36,7 +38,7 @@ test('contract: responses keep the fields the mobile client renders', async () =
 
     auth.bootstrapInitialAdmin({ username: 'admin', displayName: '管理员', password: 'StrongAdminPass123!' })
     const login = await call('/api/auth/login', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Client-Platform': 'mp-weixin' },
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Client-Platform': 'app-plus' },
       body: JSON.stringify({ username: 'admin', password: 'StrongAdminPass123!' }),
     })
     const headers = { Authorization: `Bearer ${login.body.data.token}`, 'Content-Type': 'application/json' }
@@ -127,6 +129,7 @@ test('contract: responses keep the fields the mobile client renders', async () =
   } finally {
     if (server) await new Promise((resolve) => server.close(resolve))
     store?.closeDatabase()
+    maxkb.restore()
     delete process.env.LIVESTOCK_DB_FILE
     delete process.env.LIVESTOCK_SEED_FILE
     await fs.rm(tempDir, { recursive: true, force: true })

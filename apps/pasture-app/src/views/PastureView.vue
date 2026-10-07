@@ -75,7 +75,7 @@ onMounted(load)
 </script>
 
 <template>
-  <PageChrome active="pasture" @refresh="load">
+  <PageChrome active="pasture">
     <view class="content">
       <view class="page-head">
         <view>

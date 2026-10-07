@@ -41,9 +41,6 @@ importers:
       '@dcloudio/uni-h5':
         specifier: 3.0.0-5020620260917001
         version: 3.0.0-5020620260917001(postcss@8.5.28)(rollup@4.64.0)(vite@5.2.8(@types/node@26.6.4)(sass@1.105.1)(terser@5.51.2))(vue@3.4.21(typescript@5.6.3))
-      '@dcloudio/uni-mp-weixin':
-        specifier: 3.0.0-5020620260917001
-        version: 3.0.0-5020620260917001(postcss@8.5.28)(rollup@4.64.0)(vue@3.4.21(typescript@5.6.3))
       '@dcloudio/uni-ui':
         specifier: 1.5.12
         version: 1.5.12
@@ -693,9 +690,6 @@ packages:
 
   '@dcloudio/uni-mp-vue@3.0.0-5020620260917001':
     resolution: {integrity: sha512-M0sYXb8lcRW4ozNejDSSqPC8a18RWDysUtGNC4WDQq/Aj3OT2mzHnr7oHmAc5Cbm9TZOkDW5wC5B0s0BnTClZw==}
-
-  '@dcloudio/uni-mp-weixin@3.0.0-5020620260917001':
-    resolution: {integrity: sha512-mMMHtfCkKa/3iV5Vov6PGj2OXCVK0TT6wAjmZPRqDbSe6KA6CTFlwM/xEhK55HbxaDU6IcCTFfwr0pQE0c0Kmg==}
 
   '@dcloudio/uni-nvue-styler@3.0.0-5020620260917001':
     resolution: {integrity: sha512-RVrHGvzpGNrWTTLAeANZtfbFkoFV3XZIBvjcvwF0/+lT7a5z+9KAQT29Pd51VZFHEhGgRR4GyVbVVUquS+g+0g==}
@@ -4033,31 +4027,6 @@ snapshots:
     dependencies:
       '@dcloudio/uni-shared': 3.0.0-5020620260917001
       '@vue/shared': 3.4.21
-
-  '@dcloudio/uni-mp-weixin@3.0.0-5020620260917001(postcss@8.5.28)(rollup@4.64.0)(vue@3.4.21(typescript@5.6.3))':
-    dependencies:
-      '@dcloudio/uni-cli-shared': 3.0.0-5020620260917001(postcss@8.5.28)(rollup@4.64.0)(vue@3.4.21(typescript@5.6.3))
-      '@dcloudio/uni-mp-compiler': 3.0.0-5020620260917001(postcss@8.5.28)(rollup@4.64.0)(vue@3.4.21(typescript@5.6.3))
-      '@dcloudio/uni-mp-vite': 3.0.0-5020620260917001(postcss@8.5.28)(rollup@4.64.0)(vue@3.4.21(typescript@5.6.3))
-      '@dcloudio/uni-mp-vue': 3.0.0-5020620260917001
-      '@dcloudio/uni-shared': 3.0.0-5020620260917001
-      '@vue/shared': 3.4.21
-      jimp: 0.10.3
-      licia: 1.41.1
-      qrcode-reader: 1.0.4
-      qrcode-terminal: 0.12.0
-      ws: 8.18.0
-    transitivePeerDependencies:
-      - '@nuxt/kit'
-      - '@vueuse/core'
-      - bufferutil
-      - debug
-      - postcss
-      - rollup
-      - supports-color
-      - ts-node
-      - utf-8-validate
-      - vue
 
   '@dcloudio/uni-nvue-styler@3.0.0-5020620260917001':
     dependencies:

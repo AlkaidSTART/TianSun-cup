@@ -10,7 +10,7 @@
 | --- | --- | --- | --- |
 | Web 大屏 | `apps/pasture-3d` | **否** | 维持纯前端演示数据（分区几何、轨迹、事件流均由固定种子在浏览器内生成），后端不提供接口。本文第 12 章仅登记其数据结构作为未来对口参考。 |
 | 后台管理 | `apps/pasture-admin` | 是 | 只读概览 + 用户管理，全部为已实现接口。 |
-| H5 / 小程序 / App | `apps/pasture-app` | 是 | 已有「牲畜档案」「待办事项」为真实接口；「草场」「告警」「牲畜定位与指标」「问诊」本期由演示数据转为真实接口。 |
+| H5 / 安卓 App | `apps/pasture-app` | 是 | 已有「牲畜档案」「待办事项」为真实接口；「草场」「告警」「牲畜定位与指标」「问诊」本期由演示数据转为真实接口。 |
 
 统一约束：三个前端都由同一个 Express 进程托管（`/admin/`、`/3d/`、`/app/`），API 基础路径 `/api`，数据格式 JSON（UTF-8），请求体上限 1 MiB。
 
@@ -92,7 +92,7 @@
 | 端 | 凭证 | 额外要求 |
 | --- | --- | --- |
 | H5 / 后台（浏览器） | `HttpOnly; SameSite=Strict` Cookie，`Path=/api` | 非 GET 请求须带 `X-Requested-With: TianSun` |
-| 微信小程序 | `Authorization: Bearer <token>` | 请求头 `X-Client-Platform: mp-weixin` |
+| 安卓 App | `Authorization: Bearer <token>` | 请求头 `X-Client-Platform: app-plus` |
 | 原生 App | `Authorization: Bearer <token>` | 请求头 `X-Client-Platform: app-plus` |
 
 会话默认 7 天。退出、停用账号、重置或修改密码都会撤销原会话。
@@ -162,7 +162,7 @@
 请求体 `{ "username", "password" }`。用户名 3–32 位字母/数字/`._-`，不区分大小写；密码 6–128 字符。
 
 - 浏览器：设置 `Set-Cookie: tiansun_session=...; Path=/api; HttpOnly; SameSite=Strict`，响应 `data` 为 `{ expiresAt, user }`，**不返回令牌**。
-- 小程序 / App（带 `X-Client-Platform`）：响应 `data` 为 `{ token, expiresAt, user }`。
+- 安卓 App（带 `X-Client-Platform`）：响应 `data` 为 `{ token, expiresAt, user }`。
 
 `user` 结构：`{ id, username, displayName, role, isActive, mustChangePassword, createdAt, updatedAt }`，`role` 为 `admin` / `operator`。
 
@@ -602,7 +602,8 @@
 | `symptoms` | TEXT | 症状标签，JSON 数组字符串 |
 | `description` | TEXT | 补充描述 |
 | `status` | TEXT | `open` / `answered` / `closed` |
-| `doctor_name` | TEXT | 接诊兽医显示名 |
+| `doctor_name` | TEXT | 兼容旧字段；新问诊显示 `AI 问诊助手` |
+| `maxkb_chat_id` | TEXT NULL | 每张问诊单独立的 MaxKB 会话 ID |
 | `created_at` / `updated_at` | TEXT | 时间戳 |
 
 `consultation_messages`：
@@ -611,7 +612,7 @@
 | --- | --- | --- |
 | `id` | INTEGER PK AUTOINCREMENT | |
 | `consultation_id` | INTEGER NOT NULL | |
-| `role` | TEXT | `doctor` / `user` |
+| `role` | TEXT | `assistant` / `user`；旧 `doctor` 消息保留 |
 | `author_name` | TEXT | 显示名 |
 | `text` | TEXT | 消息正文，≤1000 字符 |
 | `created_at` | TEXT | 时间戳 |
@@ -625,7 +626,7 @@
 ```json
 { "id": "14", "code": "VC-20261001-014", "livestockId": "SC-2026-00107",
   "title": "SC-2026-00107 · 反刍减少", "summary": "建议观察采食量，已恢复正常",
-  "status": "answered", "statusLabel": "已回复", "doctorName": "张医生",
+  "status": "answered", "statusLabel": "AI 已回复", "doctorName": "AI 问诊助手",
   "messageCount": 3, "createdAt": "2026-10-01T04:12:00.000Z", "updatedAt": "2026-10-01T05:02:00.000Z" }
 ```
 
@@ -640,8 +641,8 @@
 
 - `symptoms` 与 `description` **至少一项非空**，否则 `400 请至少选择一项症状或填写描述`。
 - `livestockId` 传入时必须存在于可见范围内的档案，否则 `400 未找到该牲畜`.
-- 服务端生成 `code` 并创建首条 `doctor` 问候消息；`status = 'open'`。
-- 成功 `201`，消息「问诊已提交」，返回摘要 + `messages` 数组。
+- 服务端生成 `code`，把症状、耳标、描述保存为首条 `user` 消息，立即调用 MaxKB v2，保存 `assistant` 回复并置 `status = 'answered'`。
+- 成功 `201`，消息「AI 问诊已创建」，返回详情与 `messages`；若 AI 服务暂时失败，问题依然保存、`status = 'open'` 且 `aiError = true`，可重试。未配置 API Key 时返回 `503`，不创建记录。
 
 #### `GET /api/consultations/:id`
 
@@ -654,11 +655,21 @@
 ```
 
 - `text` 必填、≤1000 字符。
-- 本人只能以 `user` 角色发言；管理员（兽医）以 `doctor` 角色发言并置 `status = 'answered'`。
-- 成功 `201`，消息「已发送」，返回新消息对象 `{ id, role, authorName, text, createdAt }`。
-- 已 `closed` 的问诊返回 `400 该问诊已关闭`。
+- 仅问诊所有者可发送 `user` 消息；服务端立即调用 MaxKB，并以 `assistant` 角色写入回复。管理员不再以医生身份发送消息。
+- 成功 `201`，消息「已发送」，返回新消息对象 `{ id, role, authorName, text, createdAt, aiError }`。
+- 已 `closed` 的问诊返回 `400 该问诊已关闭`；上一条尚未收到 AI 回复时返回 `409`，应使用重试接口。
 
-> **本期不实现**自动兽医回复。移动端 `ConsultationView.vue` 里 `setTimeout` 生成的假医生回复必须删除，改为真实轮询或由管理员在后台回复；本期先做「提交后展示等待状态 + 轮询 `GET /api/consultations/:id`」。
+#### `POST /api/consultations/:id/retry`
+
+重试最后一条尚未收到回复的 `user` 消息，不重复写入用户消息。成功返回更新后的问诊详情；MaxKB 不可用时返回 `502`，原消息仍保留。
+
+#### AI 流式对话（移动端）
+
+- `POST /api/consultations/stream`：`{ "text": "牦牛发热两天，应先观察什么？" }`，保存首条用户消息并开始新会话。
+- `POST /api/consultations/:id/messages/stream`：`{ "text": "补充：饮水正常" }`，沿用该问诊单的 MaxKB `chat_id`。
+- `POST /api/consultations/:id/retry/stream`：重试当前未回复的问题，不重复写入用户消息。
+
+成功响应为 `application/x-ndjson`，每行一个 JSON 事件：先返回 `{ "type": "conversation", "detail": ... }`，随后逐段返回 `{ "type": "delta", "text": "..." }`，完成时返回 `{ "type": "done", "detail": ... }`。AI 调用中断则返回 `{ "type": "error", "message": "..." }`，问题保留为 `open`，可重试。无权限、参数错误、未配置 Key 等在建立流前仍使用原 JSON 错误响应。旧非流式接口保留兼容。
 
 #### `PATCH /api/consultations/:id`
 
@@ -690,7 +701,7 @@
 | 同上通知 / 服务 / 安全行 | 硬编码 | 保持硬编码，不新增通知接口 |
 | `ConsultationView.vue` 提交问诊 | toast | `POST /api/consultations` |
 | 同上问诊记录 | 硬编码 2 条 | `GET /api/consultations?days=30` |
-| 同上聊天 | 本地 `setTimeout` 假回复 | `GET /api/consultations/:id` + `POST /api/consultations/:id/messages`；假回复已删除，改为 10 秒轮询直到 `status != 'open'` |
+| 同上聊天 | 本地 `setTimeout` 假回复 | `GET /api/consultations/:id` + `POST /api/consultations/:id/messages`；直接聊天，通过 NDJSON 流展示 MaxKB 增量回复，失败时提供流式重试 |
 
 ### 遗留（本轮未做，需另行确认）
 
