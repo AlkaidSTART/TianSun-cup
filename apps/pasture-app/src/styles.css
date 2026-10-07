@@ -31,7 +31,7 @@
 }
 
 /* 还原原生 button 观感：去掉 uni-app 注入的按钮皮肤。
-   uni-app 会把模板里的 <button> 编译为 uni-button（H5）/原生 button（小程序），
+   uni-app 会把模板里的 <button> 编译为 uni-button（H5）/原生 button（App），
    默认自带 #f8f8f8 灰底、::after 1px 灰描边、14px 内边距、18px 字号等。
    加上 html 后代选择器优先级为 0,0,2：高于运行时皮肤（0,0,1），
    但仍低于项目中所有 class 选择器，不会影响各按钮自己的样式。 */

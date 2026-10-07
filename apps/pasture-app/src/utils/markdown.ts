@@ -1,7 +1,7 @@
 /**
  * Dependency-free Markdown parser for AI answer bubbles.
  *
- * The app ships to H5 *and* WeChat mini-program, so we cannot use `v-html`,
+ * The app ships to H5 *and* the native App, so we cannot use `v-html`,
  * `rich-text` styling or recursive custom components. Instead the parser emits
  * a flat list of rows that maps one-to-one onto uni-app `view` / `text`
  * elements, which keeps inline styles (bold, code, links) available on every

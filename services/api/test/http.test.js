@@ -31,7 +31,7 @@ test('Express API protects resources and preserves JSON error envelopes', async 
 
     auth.bootstrapInitialAdmin({ username: 'admin', displayName: '管理员', password: 'StrongAdminPass123!' })
     const login = await (await request('/api/auth/login', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Client-Platform': 'mp-weixin' },
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Client-Platform': 'app-plus' },
       body: JSON.stringify({ username: 'admin', password: 'StrongAdminPass123!' }),
     })).json()
     assert.equal(login.code, 0)

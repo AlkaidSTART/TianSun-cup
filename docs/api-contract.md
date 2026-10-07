@@ -10,7 +10,7 @@
 | --- | --- | --- | --- |
 | Web 大屏 | `apps/pasture-3d` | **否** | 维持纯前端演示数据（分区几何、轨迹、事件流均由固定种子在浏览器内生成），后端不提供接口。本文第 12 章仅登记其数据结构作为未来对口参考。 |
 | 后台管理 | `apps/pasture-admin` | 是 | 只读概览 + 用户管理，全部为已实现接口。 |
-| H5 / 小程序 / App | `apps/pasture-app` | 是 | 已有「牲畜档案」「待办事项」为真实接口；「草场」「告警」「牲畜定位与指标」「问诊」本期由演示数据转为真实接口。 |
+| H5 / 安卓 App | `apps/pasture-app` | 是 | 已有「牲畜档案」「待办事项」为真实接口；「草场」「告警」「牲畜定位与指标」「问诊」本期由演示数据转为真实接口。 |
 
 统一约束：三个前端都由同一个 Express 进程托管（`/admin/`、`/3d/`、`/app/`），API 基础路径 `/api`，数据格式 JSON（UTF-8），请求体上限 1 MiB。
 
@@ -92,7 +92,7 @@
 | 端 | 凭证 | 额外要求 |
 | --- | --- | --- |
 | H5 / 后台（浏览器） | `HttpOnly; SameSite=Strict` Cookie，`Path=/api` | 非 GET 请求须带 `X-Requested-With: TianSun` |
-| 微信小程序 | `Authorization: Bearer <token>` | 请求头 `X-Client-Platform: mp-weixin` |
+| 安卓 App | `Authorization: Bearer <token>` | 请求头 `X-Client-Platform: app-plus` |
 | 原生 App | `Authorization: Bearer <token>` | 请求头 `X-Client-Platform: app-plus` |
 
 会话默认 7 天。退出、停用账号、重置或修改密码都会撤销原会话。
@@ -162,7 +162,7 @@
 请求体 `{ "username", "password" }`。用户名 3–32 位字母/数字/`._-`，不区分大小写；密码 6–128 字符。
 
 - 浏览器：设置 `Set-Cookie: tiansun_session=...; Path=/api; HttpOnly; SameSite=Strict`，响应 `data` 为 `{ expiresAt, user }`，**不返回令牌**。
-- 小程序 / App（带 `X-Client-Platform`）：响应 `data` 为 `{ token, expiresAt, user }`。
+- 安卓 App（带 `X-Client-Platform`）：响应 `data` 为 `{ token, expiresAt, user }`。
 
 `user` 结构：`{ id, username, displayName, role, isActive, mustChangePassword, createdAt, updatedAt }`，`role` 为 `admin` / `operator`。
 

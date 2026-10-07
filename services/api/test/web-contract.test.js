@@ -38,7 +38,7 @@ test('contract: responses keep the fields the mobile client renders', async () =
 
     auth.bootstrapInitialAdmin({ username: 'admin', displayName: '管理员', password: 'StrongAdminPass123!' })
     const login = await call('/api/auth/login', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Client-Platform': 'mp-weixin' },
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Client-Platform': 'app-plus' },
       body: JSON.stringify({ username: 'admin', password: 'StrongAdminPass123!' }),
     })
     const headers = { Authorization: `Bearer ${login.body.data.token}`, 'Content-Type': 'application/json' }

@@ -54,7 +54,7 @@ export function streamConsultation(
   onEvent: (event: ConsultationStreamEvent) => void,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    // #ifdef APP-PLUS || MP-WEIXIN
+    // #ifdef APP-PLUS
     if (!/^https?:\/\//i.test(apiBaseUrl)) {
       reject(new Error('请配置手机可访问的完整后端 API 地址'))
       return
@@ -70,9 +70,6 @@ export function streamConsultation(
     // #endif
     // #ifdef APP-PLUS
     headers['X-Client-Platform'] = 'app-plus'
-    // #endif
-    // #ifdef MP-WEIXIN
-    headers['X-Client-Platform'] = 'mp-weixin'
     // #endif
 
     let lineBuffer = ''

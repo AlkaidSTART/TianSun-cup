@@ -60,7 +60,7 @@ test('legacy records migrate to the initial admin; sessions and user scopes are 
     const base = `http://127.0.0.1:${server.address().port}`
     async function call(method, route, body, token) {
       const response = await fetch(`${base}${route}`, {
-        method, headers: { 'Content-Type': 'application/json', ...(route === '/api/auth/login' ? { 'X-Client-Platform': 'mp-weixin' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        method, headers: { 'Content-Type': 'application/json', ...(route === '/api/auth/login' ? { 'X-Client-Platform': 'app-plus' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       })
       return { status: response.status, data: await response.json() }

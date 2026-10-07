@@ -40,7 +40,7 @@ test('contract: pasture, alert, telemetry and consultation endpoints', async () 
     }
     async function login(username, password) {
       const response = await call('/api/auth/login', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Client-Platform': 'mp-weixin' },
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Client-Platform': 'app-plus' },
         body: JSON.stringify({ username, password }),
       })
       assert.equal(response.body.code, 0, JSON.stringify(response.body))
