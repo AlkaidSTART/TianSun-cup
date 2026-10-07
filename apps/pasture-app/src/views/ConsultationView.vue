@@ -382,7 +382,7 @@ onUnmounted(() => {
   min-height: 0;
   flex-direction: column;
   gap: 10px;
-  padding: 14px 14px 0;
+  padding: calc(14px + var(--app-safe-top, 0px)) 14px 0;
 }
 
 /* 页头 */

@@ -96,7 +96,7 @@ async function setPassword() {
 </template>
 
 <style scoped>
-.login-screen { min-height: 100svh; display: flex; align-items: center; justify-content: center; padding: 32px 18px; background: #f4f6f1; }
+.login-screen { min-height: 100svh; display: flex; align-items: center; justify-content: center; padding: calc(32px + var(--app-safe-top, 0px)) 18px 32px; background: #f4f6f1; }
 .login-card { width: 100%; max-width: 420px; padding: 30px 24px; background: #fff; border: 1px solid #e5ebe5; border-radius: 22px; box-shadow: 0 20px 50px rgba(26, 59, 46, .09); }
 .login-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 34px; }
 .login-mark { display: grid; place-items: center; width: 42px; height: 42px; color: #fff; background: #1d3b30; border-radius: 13px; font-weight: 800; }

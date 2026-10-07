@@ -220,7 +220,7 @@ function goBack() {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: max(14px, env(safe-area-inset-top)) 18px 12px;
+  padding: max(14px, var(--app-safe-top, 0px)) 18px 12px;
   background: rgba(244, 246, 241, 0.92);
   backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--line, #e7ece6);

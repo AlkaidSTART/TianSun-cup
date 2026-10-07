@@ -39,13 +39,14 @@ body {
   margin: auto;
 }
 .topbar {
-  height: 64px;
+  height: calc(64px + var(--app-safe-top, 0px));
   background: #ffffffef;
   backdrop-filter: blur(16px);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 28px;
+  padding-top: var(--app-safe-top, 0px);
   border-bottom: 1px solid var(--border-soft);
   position: sticky;
   top: 0;
@@ -780,7 +781,8 @@ body {
 @media (max-width: 620px) {
   .topbar {
     padding: 0 16px;
-    height: 58px;
+    padding-top: var(--app-safe-top, 0px);
+    height: calc(58px + var(--app-safe-top, 0px));
   }
   .brand-sub {
     display: none;
