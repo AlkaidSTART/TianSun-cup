@@ -36,3 +36,6 @@ declare module 'lucide-vue-next' {
   export const Wrench: typeof Icon
   export const X: typeof Icon
 }
+
+/** Only the public map key is injected by Vite. */
+declare const __PASTURE_MAP_TOKEN__: string
