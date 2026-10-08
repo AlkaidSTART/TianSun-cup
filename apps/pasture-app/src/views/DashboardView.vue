@@ -1,34 +1,20 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import {
   Check,
   CircleAlert,
-  LocateFixed,
-  Minus,
-  Plus,
   TriangleAlert,
   WifiOff,
-  X,
 } from 'lucide-vue-next'
 import { completeTodo, loadTodos, todoCurrentDate, todoError, todoItems, todoLoading, type TodoItem } from '../data/todoList'
 import PageChrome from '../components/PageChrome.vue'
+import PastureScene from '../components/PastureScene.vue'
 import { alertApi, type AlertRecord } from '../services/alertApi'
 import { pastureApi, type CarryingCapacity, type PasturePressureDay, type PastureZone } from '../services/pastureApi'
-import { telemetryApi, type LatestPosition, type TelemetrySummary } from '../services/telemetryApi'
+import { telemetryApi, type TelemetrySummary } from '../services/telemetryApi'
 
-type DotStatus = 'normal' | 'attention' | 'abnormal' | 'offline'
+defineProps<{ active?: boolean }>()
 
-// The map draws ten fixed slots; live positions are projected onto them so the
-// layout stays stable while the underlying records change.
-const MAP_SLOT_IDS = ['d1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8', 'd9', 'd10']
-const statusLabel: Record<DotStatus, string> = {
-  normal: '正常',
-  attention: '需关注',
-  abnormal: '异常',
-  offline: '离线',
-}
-
-const positions = ref<LatestPosition[]>([])
 const telemetry = ref<TelemetrySummary | null>(null)
 const capacity = ref<CarryingCapacity | null>(null)
 const zones = ref<PastureZone[]>([])
@@ -36,12 +22,10 @@ const pressureDays = ref<PasturePressureDay[]>([])
 const alerts = ref<AlertRecord[]>([])
 const dataError = ref('')
 
-const activeDot = ref<LatestPosition | null>(null)
 const toastText = ref('')
 const completingTodoId = ref('')
 let toastTimer: ReturnType<typeof setTimeout> | undefined
 
-const isDrawerOpen = computed(() => activeDot.value !== null)
 const todayTodos = computed(() => todoItems.value
   .filter((todo) => todo.date === todoCurrentDate.value)
   .sort((left, right) => left.time.localeCompare(right.time)))
@@ -58,11 +42,6 @@ const todayTodoMeta = computed(() => {
 })
 const todayTodoTone = computed(() => pendingTodayTodos.value[0]?.tone || 'ok')
 
-const mapDots = computed(() => positions.value.slice(0, MAP_SLOT_IDS.length).map((item, index) => ({
-  ...item,
-  slot: MAP_SLOT_IDS[index],
-  label: statusLabel[item.status as DotStatus] || item.status,
-})))
 const peakZone = computed(() => zones.value.reduce<PastureZone | null>(
   (highest, zone) => (!highest || zone.pressure > highest.pressure ? zone : highest), null,
 ))
@@ -92,33 +71,15 @@ function showMessage(message: string) {
   toastTimer = setTimeout(() => { toastText.value = '' }, 1600)
 }
 
-function formatMetric(value: number | null, suffix = '') {
-  return value === null ? '—' : `${value}${suffix}`
-}
-
-// The map is a stylised diagram, not a projection: the three seeded pasture
-// units are pinned to the three slots the Artboard markup uses for zone-a/b/c.
-const ZONE_LABEL_POSITIONS: Record<string, { left?: string; right?: string; top?: string; bottom?: string }> = {
-  'P-A-01': { left: '15%', bottom: '17%' },
-  'P-A-02': { right: '15%', bottom: '24%' },
-  'P-A-03': { left: '34%', top: '24%' },
-}
-
-function zoneLabelPosition(id: string) {
-  return ZONE_LABEL_POSITIONS[id] ?? {}
-}
-
 async function loadDashboard() {
   try {
-    const [livePositions, telemetrySummary, pastureZones, peak, pressure, openAlerts] = await Promise.all([
-      telemetryApi.latest({ pageSize: 200 }),
+    const [telemetrySummary, pastureZones, peak, pressure, openAlerts] = await Promise.all([
       telemetryApi.summary(),
       pastureApi.list(),
       pastureApi.carryingCapacity(),
       pastureApi.pressure(7),
       alertApi.list({ status: 'open', pageSize: 3 }),
     ])
-    positions.value = livePositions
     telemetry.value = telemetrySummary
     zones.value = pastureZones
     capacity.value = peak
@@ -153,16 +114,8 @@ async function markTodoComplete(item: TodoItem) {
   }
 }
 
-function openDot(dot: LatestPosition) { activeDot.value = dot }
-function closeDrawer() { activeDot.value = null }
-function markHandled() { closeDrawer(); showMessage('已标记为处理中') }
-function focusDot() {
-  if (!activeDot.value) return
-  const id = activeDot.value.livestockId
-  closeDrawer()
-  showMessage(`已定位 ${id}`)
-}
-function openAlert(targetId: string) { showMessage(`已定位 ${targetId}`) }
+onBeforeUnmount(() => { if (toastTimer) clearTimeout(toastTimer) })
+function openAlert(_targetId: string) { emit('navigate', 'alerts') }
 </script>
 
 <template>
@@ -208,39 +161,11 @@ function openAlert(targetId: string) { showMessage(`已定位 ${targetId}`) }
           <div class="panel-head">
             <div>
               <div class="panel-title">3D 牧场总览</div>
-              <div class="panel-meta">程序化地形 · LOD 128×128 · 实时点位</div>
+              <div class="panel-meta">卫星地形 · 牲畜模拟演示</div>
             </div>
-            <button class="link-btn" @click="loadDashboard">刷新点位 ↗</button>
           </div>
           <div class="map-wrap">
-            <div class="map">
-              <div class="mountain m1"></div><div class="mountain m2"></div><div class="mountain m3"></div>
-              <div class="river"></div>
-              <div class="boundary zone-a"></div><div class="boundary zone-b"></div><div class="boundary zone-c"></div>
-              <span v-for="zone in zones" :key="zone.id" class="zone-label" :style="zoneLabelPosition(zone.id)">{{ zone.id }} · {{ zone.name.replace('草场', '') }}</span>
-              <button
-                v-for="dot in mapDots"
-                :key="dot.livestockId"
-                class="dot"
-                :class="[dot.status, dot.slot]"
-                :aria-label="`${dot.livestockId} ${dot.label}`"
-                @click="openDot(dot)"
-              ></button>
-              <div class="map-legend">
-                <div class="legend-item"><i class="legend-dot ld-g"></i>正常</div>
-                <div class="legend-item"><i class="legend-dot ld-y"></i>需关注</div>
-                <div class="legend-item"><i class="legend-dot ld-r"></i>异常</div>
-                <div class="legend-item"><i class="legend-dot ld-x"></i>离线</div>
-              </div>
-              <div class="map-tools">
-                <button class="map-tool" aria-label="放大地图" @click="showMessage('已放大地图')"><Plus :size="17" /></button>
-                <button class="map-tool" aria-label="缩小地图" @click="showMessage('已缩小地图')"><Minus :size="17" /></button>
-                <button class="map-tool" aria-label="定位示范区" @click="showMessage('已回到示范区中心')"><LocateFixed :size="17" /></button>
-              </div>
-              <div class="map-status">
-                数据流 <b>{{ dataError ? '● 中断' : '● 正常' }}</b>　{{ mapDots.length }} 个点位 · 共 {{ healthTotal }} 头在档
-              </div>
-            </div>
+            <PastureScene :active="active !== false" />
           </div>
         </section>
 
@@ -386,26 +311,6 @@ function openAlert(targetId: string) { showMessage(`已定位 ${targetId}`) }
       </div>
     </main>
 
-    <div class="drawer" :class="{ open: isDrawerOpen }" @click.self="closeDrawer">
-      <div class="drawer-card">
-        <div class="drawer-head">
-          <h2>牲畜详情 · {{ activeDot?.livestockId }}</h2>
-          <button class="close" aria-label="关闭" @click="closeDrawer"><X :size="18" /></button>
-        </div>
-        <div v-if="activeDot" class="detail-grid">
-          <div class="detail"><label>健康状态</label><strong>{{ activeDot.statusLabel }}</strong></div>
-          <div class="detail"><label>体温</label><strong>{{ formatMetric(activeDot.temperature, '℃') }}</strong></div>
-          <div class="detail"><label>所在区域</label><strong style="font-size:14px">{{ activeDot.pastureId }} · {{ activeDot.pastureName }}</strong></div>
-          <div class="detail"><label>今日步数</label><strong>{{ formatMetric(activeDot.steps) }}</strong></div>
-          <div class="detail"><label>心率</label><strong>{{ formatMetric(activeDot.heartRate) }} <small>次/分</small></strong></div>
-          <div class="detail"><label>反刍次数</label><strong>{{ formatMetric(activeDot.rumination) }} <small>次/天</small></strong></div>
-        </div>
-        <div class="drawer-actions">
-          <button class="btn primary" @click="focusDot">定位到地图</button>
-          <button class="btn secondary" @click="markHandled">标记已处理</button>
-        </div>
-      </div>
-    </div>
     <div class="toast" :class="{ show: toastText }">{{ toastText }}</div>
   </PageChrome>
 </template>

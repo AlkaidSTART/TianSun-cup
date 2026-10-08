@@ -34,6 +34,10 @@ function closeAccountDialog() {
 
 async function submitPassword() {
   if (passwordBusy.value) return
+  if (!passwordForm.current || !passwordForm.next || !passwordForm.confirm) {
+    accountMessage.value = '请填写完整的密码信息'
+    return
+  }
   if (passwordForm.next !== passwordForm.confirm) {
     accountMessage.value = '\u4e24\u6b21\u65b0\u5bc6\u7801\u4e0d\u4e00\u81f4'
     return
@@ -91,7 +95,7 @@ function navigate(view: string) {
           <p v-if="accountMessage" class="account-modal-message" role="status">{{ accountMessage }}</p>
           <div class="account-modal-actions">
             <button class="account-modal-action" type="button" :disabled="passwordBusy" @click="passwordOpen = false; accountMessage = ''">{{ cancelLabel }}</button>
-            <button class="account-modal-action account-modal-primary" type="submit" :disabled="passwordBusy">{{ passwordBusy ? savingLabel : savePasswordLabel }}</button>
+            <button class="account-modal-action account-modal-primary" type="button" :disabled="passwordBusy" @click="submitPassword">{{ passwordBusy ? savingLabel : savePasswordLabel }}</button>
           </div>
         </form>
         <p v-if="accountMessage && !passwordOpen" class="account-modal-message" role="status">{{ accountMessage }}</p>

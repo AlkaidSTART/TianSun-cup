@@ -189,7 +189,14 @@ function buildDraft(): TodoDraft | null {
     return { type, date, time, title: `${todoForm.herd}疫苗接种`, detail: detail || '按防疫计划完成接种' }
   }
   if (type === 'maintenance') return { type, date, time, title: `${todoForm.area}维护`, detail: withNote('草场与围栏维护作业') }
-  if (type === 'device') return { type, date, time, title: `${todoForm.deviceId.trim()} 检修`, detail: withNote('检查设备状态并恢复上报') }
+  if (type === 'device') {
+    const deviceId = todoForm.deviceId.trim()
+    if (!deviceId) {
+      showMessage('请填写设备编号')
+      return null
+    }
+    return { type, date, time, title: `${deviceId} 检修`, detail: withNote('检查设备状态并恢复上报') }
+  }
   const title = todoForm.title.trim()
   if (!title) {
     showMessage('请填写事项名称')
@@ -202,6 +209,11 @@ async function submitTodo() {
 
   let draft: TodoDraft | null = null
   if (todoForm.type === 'rotation') {
+    const amount = Number(todoForm.amount)
+    if (!Number.isFinite(amount) || amount < 1) {
+      showMessage('请填写预计转移数量')
+      return
+    }
     if (todoForm.from === todoForm.to) {
       showMessage('起始草场和目标草场不能相同')
       return
@@ -278,7 +290,7 @@ function navigate(view: string) { navigateToView(view) }
           </template>
           <label class="todo-field todo-field-full"><span>备注</span><textarea v-model.trim="todoForm.note" rows="3" maxlength="120" :placeholder="notePlaceholder"></textarea></label>
         </div>
-        <div class="drawer-actions todo-form-actions"><button class="btn btn-secondary" type="button" @click="closeTodoDialog">取消</button><button class="btn btn-primary" type="submit" :disabled="todoSaving">{{ todoSaving ? '保存中...' : '保存待办' }}</button></div>
+        <div class="drawer-actions todo-form-actions"><button class="btn btn-secondary" type="button" @click="closeTodoDialog">取消</button><button class="btn btn-primary" type="button" :disabled="todoSaving" @click="submitTodo">{{ todoSaving ? '保存中...' : '保存待办' }}</button></div>
       </form>
     </div>
     <div v-if="editDialogOpen" class="drawer todo-dialog open" @click.self="closeEditTodo">
@@ -291,7 +303,7 @@ function navigate(view: string) { navigateToView(view) }
           <label class="todo-field todo-field-full"><span>事项名称</span><input v-model.trim="editForm.title" type="text" maxlength="60" required></label>
           <label class="todo-field todo-field-full"><span>备注</span><textarea v-model.trim="editForm.detail" rows="4" maxlength="240" placeholder="补充事项说明"></textarea></label>
         </div>
-        <div class="drawer-actions todo-form-actions"><button class="btn btn-secondary" type="button" @click="closeEditTodo">取消</button><button class="btn todo-danger" type="button" :disabled="editSaving" @click="requestDeleteTodo">删除待办</button><button class="btn btn-primary" type="submit" :disabled="editSaving">{{ editSaving ? '处理中...' : '确认修改' }}</button></div>
+        <div class="drawer-actions todo-form-actions"><button class="btn btn-secondary" type="button" @click="closeEditTodo">取消</button><button class="btn todo-danger" type="button" :disabled="editSaving" @click="requestDeleteTodo">删除待办</button><button class="btn btn-primary" type="button" :disabled="editSaving" @click="submitEditTodo">{{ editSaving ? '处理中...' : '确认修改' }}</button></div>
       </form>
     </div>
     <div v-if="deleteConfirmOpen" class="drawer todo-dialog delete-confirm-dialog open" @click.self="cancelDeleteTodo">

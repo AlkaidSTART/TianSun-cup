@@ -131,14 +131,25 @@ function sourceLabel(sourceType: LivestockSourceType) {
 }
 
 function formatNumber(value: number | null) {
-  return value == null ? '—' : new Intl.NumberFormat('zh-CN').format(value)
+  // 老版安卓 WebView / App 内置内核可能没有 Intl 命名空间，直接使用 new Intl.*
+  // 会在渲染时抛错，导致打开页面即白屏；这里改为手工格式化，和项目其他页面保持一致。
+  if (value == null) return '—'
+  const text = String(value)
+  const negative = text.startsWith('-')
+  const body = negative ? text.slice(1) : text
+  const [integer, decimal] = body.split('.')
+  const grouped = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  return `${negative ? '-' : ''}${grouped}${decimal ? `.${decimal}` : ''}`
 }
 
 function formatDate(value: string | null) {
   if (!value) return '未记录'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(date)
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function recordDetail(record: LivestockRecord) {
@@ -281,7 +292,7 @@ function exportList() {
     ]
   })
   const csv = [header, ...csvRows]
-    .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(','))
+    .map((row) => row.map((cell) => `"${String(cell).split('"').join('""')}"`).join(','))
     .join('\n')
   // #ifdef H5
   const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' })

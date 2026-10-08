@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import AppIcon from '../components/AppIcon.vue'
 import PageChrome from '../components/PageChrome.vue'
 import { navigateToView } from '../utils/navigation'
+import { formatClockTime } from '../utils/datetime'
 import { alertApi, type AlertRecord, type AlertRules, type AlertSeverity, type AlertSummary } from '../services/alertApi'
 
 type SeverityFilter = 'all' | AlertSeverity
@@ -44,10 +45,7 @@ function iconName(severity: AlertSeverity) {
 }
 
 function shortTime(value: string) {
-  const date = new Date(value)
-  return Number.isNaN(date.getTime())
-    ? value
-    : date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  return formatClockTime(value)
 }
 
 async function load() {
