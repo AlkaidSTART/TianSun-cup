@@ -298,7 +298,7 @@ export function validateHerderActivityRanges(ranges = HERDER_ACTIVITY_RANGES) {
 validateHerderActivityRanges();
 
 export const STATUS = {
-  normal: { label: '正常', color: 0x00e676, cssColor: '#00E676' },
+  normal: { label: '正常', color: 0x0284c7, cssColor: '#0284C7' },
   attention: { label: '需关注', color: 0xffd600, cssColor: '#FFD600' },
   abnormal: { label: '异常', color: 0xff1744, cssColor: '#FF1744' },
   offline: { label: '掉线', color: 0xe3f2fd, cssColor: '#E3F2FD' }

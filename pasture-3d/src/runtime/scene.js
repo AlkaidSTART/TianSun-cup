@@ -1112,7 +1112,6 @@ export function createPastureScene({ container: root, token = '', mobile = false
           new Promise(resolve => { demTimer = setTimeout(() => resolve(null), 12000); })
         ]);
       } catch (error) {
-        console.error('[sampleGround centerGround error]:', error);
         if (disposed || error?.name === 'AbortError') throw error;
         centerGround = null;
       } finally { clearTimeout(demTimer); }

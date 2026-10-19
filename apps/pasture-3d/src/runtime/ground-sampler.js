@@ -47,8 +47,9 @@ export function createGroundSampler(map, { timeoutMs = 12000, loadGeometry } = {
       const world = map.geo2world(new THREE.Vector3(longitude, latitude, 0));
       const coord = map.getTileCoordFromWorld(world, level);
       if (!coord) return null;
-      const bounds = map.projection.getProjBoundsFromXYZ(coord.x, coord.y, coord.z);
-      const mesh = await tileAt(source, coord, bounds);
+      const fullCoord = { x: coord.x, y: coord.y, z: level };
+      const bounds = map.projection.getProjBoundsFromXYZ(fullCoord.x, fullCoord.y, fullCoord.z);
+      const mesh = await tileAt(source, fullCoord, bounds);
       if (disposed) throw aborted();
       const local = map.worldToLocal(world.clone());
       const width = map.projection.mapWidth;

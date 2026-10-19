@@ -10,41 +10,100 @@ const root = document.querySelector('#scene-container');
 const loadingPanel = document.querySelector('#loading-panel');
 const loadingTitle = document.querySelector('#loading-title');
 const loadingMessage = document.querySelector('#loading-message');
+const loadingBarFill = document.querySelector('#loading-bar-fill');
+const loadingPercent = document.querySelector('#loading-percent');
 const serviceStatus = document.querySelector('#service-status');
 const serviceDot = document.querySelector('#service-dot');
 
+let currentProgress = 15;
+let targetProgress = 15;
+let progressRaf = null;
+
+function renderProgress(value) {
+  const rounded = Math.min(100, Math.max(0, Math.round(value)));
+  if (loadingBarFill) loadingBarFill.style.width = `${rounded}%`;
+  if (loadingPercent) loadingPercent.textContent = `${rounded}%`;
+}
+
+function setTargetProgress(target) {
+  targetProgress = Math.max(targetProgress, target);
+  if (!progressRaf) {
+    tickProgress();
+  }
+}
+
+function tickProgress() {
+  if (currentProgress < targetProgress) {
+    const delta = (targetProgress - currentProgress) * 0.15 + 0.35;
+    currentProgress = Math.min(targetProgress, currentProgress + delta);
+    renderProgress(currentProgress);
+  }
+  if (currentProgress < targetProgress) {
+    progressRaf = requestAnimationFrame(tickProgress);
+  } else {
+    progressRaf = null;
+  }
+}
+
 function updateLoadingState(msg) {
   let title = '正在连接天地图';
+  let progress = 20;
 
-  if (msg.includes('真实地形高程') || msg.includes('高程')) {
+  if (msg.includes('地图瓦片')) {
+    title = '加载卫星影像瓦片';
+    const match = msg.match(/(\d+)\/(\d+)/);
+    if (match) {
+      const loaded = Number(match[1]);
+      const total = Number(match[2]) || 1;
+      const ratio = Math.min(1, loaded / total);
+      progress = 20 + Math.round(ratio * 40);
+    } else {
+      progress = 35;
+    }
+  } else if (msg.includes('真实地形高程') || msg.includes('高程')) {
     title = '采样地形高程';
+    progress = 65;
   } else if (msg.includes('草场分区')) {
     title = '构建草场分区';
+    progress = 75;
   } else if (msg.includes('牧民定居点') || msg.includes('夜间休息区')) {
     title = '划定定居点与围栏';
+    progress = 82;
   } else if (msg.includes('牲畜光点')) {
     title = '定位牲畜终端';
+    progress = 88;
   } else if (msg.includes('早出晚归') || msg.includes('运动轨迹')) {
     title = '计算运动轨迹';
+    progress = 93;
   } else if (msg.includes('越界提醒')) {
     title = '配置电子围栏';
-  } else if (msg.includes('地图瓦片')) {
-    title = '加载卫星影像瓦片';
+    progress = 97;
   }
 
+  setTargetProgress(progress);
   if (loadingTitle) loadingTitle.textContent = title;
   if (loadingMessage) loadingMessage.textContent = msg;
 }
 
 function finishLoading() {
+  setTargetProgress(100);
   if (loadingTitle) loadingTitle.textContent = '加载完成';
   if (loadingMessage) loadingMessage.textContent = '正在进入场景...';
   setTimeout(() => {
+    renderProgress(100);
     loadingPanel?.classList.add('hidden');
-  }, 200);
+    if (progressRaf) {
+      cancelAnimationFrame(progressRaf);
+      progressRaf = null;
+    }
+  }, 350);
 }
 
 function failLoading(title, message) {
+  if (progressRaf) {
+    cancelAnimationFrame(progressRaf);
+    progressRaf = null;
+  }
   loadingPanel?.classList.remove('hidden');
   loadingPanel?.classList.add('error');
   if (loadingTitle) loadingTitle.textContent = title;
@@ -228,6 +287,10 @@ function layoutMessageFeed() {
   const legend = document.querySelector('.legend-panel');
   const bar = document.querySelector('.statusbar');
   if (!feed || !legend) return;
+  if (feed.classList.contains('collapsed')) {
+    feed.style.height = '';
+    return;
+  }
   const gap = 12;
   const heightScale = 0.9;
   const preferredHeight = Math.min(innerHeight * 0.33, 360);
@@ -281,7 +344,55 @@ function initLegendDrawer() {
 }
 initLegendDrawer();
 
-messageClear?.addEventListener('click', () => messageFeed.clear());
+// 消息提醒抽屉栏：可收纳/展开，默认收起，支持 localStorage 状态持久化。
+const messageFeedEl = document.querySelector('#message-feed');
+const messageToggle = document.querySelector('#message-toggle');
+const MESSAGE_COLLAPSED_KEY = 'pasture3d:message-collapsed';
+
+function setMessageCollapsed(collapsed, { persist = true } = {}) {
+  if (!messageFeedEl || !messageToggle) return;
+  messageFeedEl.classList.toggle('collapsed', collapsed);
+  messageToggle.setAttribute('aria-expanded', String(!collapsed));
+  messageToggle.setAttribute('aria-label', collapsed ? '展开消息提醒面板' : '收起消息提醒面板');
+  messageToggle.title = collapsed ? '展开' : '收起';
+  if (collapsed) {
+    messageFeedEl.style.height = '';
+  } else {
+    layoutMessageFeed();
+  }
+  if (persist) {
+    try {
+      localStorage.setItem(MESSAGE_COLLAPSED_KEY, collapsed ? '1' : '0');
+    } catch (error) {
+      // 隐私模式等场景下 localStorage 不可用，忽略即可。
+    }
+  }
+}
+
+function initMessageDrawer() {
+  if (!messageFeedEl || !messageToggle) return;
+  let collapsed = true;
+  try {
+    const saved = localStorage.getItem(MESSAGE_COLLAPSED_KEY);
+    if (saved !== null) {
+      collapsed = saved === '1';
+    }
+  } catch (error) {
+    collapsed = true;
+  }
+  setMessageCollapsed(collapsed, { persist: false });
+
+  messageFeedEl.querySelector('.message-feed-header')?.addEventListener('click', (event) => {
+    if (event.target.closest('#message-clear')) return;
+    setMessageCollapsed(!messageFeedEl.classList.contains('collapsed'));
+  });
+}
+initMessageDrawer();
+
+messageClear?.addEventListener('click', (event) => {
+  event.stopPropagation();
+  messageFeed.clear();
+});
 
 function formatSimulationHour(hour) {
   const minutes = Math.round((hour % 24) * 60) % 1440;

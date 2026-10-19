@@ -20,16 +20,13 @@ export function createGroundSampler(map, { timeoutMs = 12000, loadGeometry } = {
     entry.promise = new Promise((resolve, reject) => {
       let finished = false;
       const fail = error => {
-        console.error('[DEM tileAt fail]:', key, error);
         if (finished) return;
         finished = true; clearTimeout(timer); cache.delete(key); reject(error);
       };
       const timer = setTimeout(() => fail(new Error('高程瓦片加载超时')), timeoutMs);
       entry.cancel = () => fail(aborted());
       const params = { source, ...coord, x: map.projection.getTileXWithCenterLon(coord.x, coord.z), projBounds: bounds };
-      console.log('[DEM tileAt params]:', params);
       Promise.resolve().then(() => loadGeometry ? loadGeometry(params) : getDEMLoader(source.dataType).load(params)).then(geometry => {
-        console.log('[DEM tileAt geometry loaded]:', geometry);
         if (disposed || finished) { geometry.dispose(); return; }
         finished = true; clearTimeout(timer);
         const mesh = new THREE.Mesh(geometry, material);
@@ -50,8 +47,9 @@ export function createGroundSampler(map, { timeoutMs = 12000, loadGeometry } = {
       const world = map.geo2world(new THREE.Vector3(longitude, latitude, 0));
       const coord = map.getTileCoordFromWorld(world, level);
       if (!coord) return null;
-      const bounds = map.projection.getProjBoundsFromXYZ(coord.x, coord.y, coord.z);
-      const mesh = await tileAt(source, coord, bounds);
+      const fullCoord = { x: coord.x, y: coord.y, z: level };
+      const bounds = map.projection.getProjBoundsFromXYZ(fullCoord.x, fullCoord.y, fullCoord.z);
+      const mesh = await tileAt(source, fullCoord, bounds);
       if (disposed) throw aborted();
       const local = map.worldToLocal(world.clone());
       const width = map.projection.mapWidth;

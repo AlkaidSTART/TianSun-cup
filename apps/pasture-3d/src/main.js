@@ -10,138 +10,102 @@ const root = document.querySelector('#scene-container');
 const loadingPanel = document.querySelector('#loading-panel');
 const loadingTitle = document.querySelector('#loading-title');
 const loadingMessage = document.querySelector('#loading-message');
-const loadingPercent = document.querySelector('#loading-percent');
 const loadingBarFill = document.querySelector('#loading-bar-fill');
-const loadingStepTag = document.querySelector('#loading-step-tag');
+const loadingPercent = document.querySelector('#loading-percent');
 const serviceStatus = document.querySelector('#service-status');
 const serviceDot = document.querySelector('#service-dot');
 
-let currentProgress = 6;
-let targetProgress = 16;
-let progressAnimId = null;
-let isReadyTransitioning = false;
+let currentProgress = 15;
+let targetProgress = 15;
+let progressRaf = null;
 
-function setStepActive(stepIndex) {
-  const stepNodes = loadingPanel?.querySelectorAll('.lp-step-node');
-  stepNodes?.forEach((node, idx) => {
-    node.classList.toggle('active', idx <= stepIndex);
-  });
+function renderProgress(value) {
+  const rounded = Math.min(100, Math.max(0, Math.round(value)));
+  if (loadingBarFill) loadingBarFill.style.width = `${rounded}%`;
+  if (loadingPercent) loadingPercent.textContent = `${rounded}%`;
 }
 
-function tickLoading() {
+function setTargetProgress(target) {
+  targetProgress = Math.max(targetProgress, target);
+  if (!progressRaf) {
+    tickProgress();
+  }
+}
+
+function tickProgress() {
   if (currentProgress < targetProgress) {
-    const diff = targetProgress - currentProgress;
-    const step = Math.max(0.35, diff * 0.12);
-    currentProgress = Math.min(targetProgress, currentProgress + step);
-    if (loadingPercent) loadingPercent.textContent = `${Math.round(currentProgress)}%`;
-    if (loadingBarFill) {
-      loadingBarFill.style.width = `${currentProgress}%`;
-      const tip = loadingBarFill.querySelector('.lp-bar-tip');
-      if (tip) tip.style.opacity = currentProgress > 1 ? '1' : '0';
-    }
+    const delta = (targetProgress - currentProgress) * 0.15 + 0.35;
+    currentProgress = Math.min(targetProgress, currentProgress + delta);
+    renderProgress(currentProgress);
   }
-  if (!isReadyTransitioning || currentProgress < 100) {
-    progressAnimId = requestAnimationFrame(tickLoading);
+  if (currentProgress < targetProgress) {
+    progressRaf = requestAnimationFrame(tickProgress);
+  } else {
+    progressRaf = null;
   }
 }
-progressAnimId = requestAnimationFrame(tickLoading);
 
 function updateLoadingState(msg) {
-  if (isReadyTransitioning) return;
-  let target = targetProgress;
-  let step = '数据载入';
   let title = '正在连接天地图';
-  let stepIdx = 0;
+  let progress = 20;
 
-  if (msg.includes('真实地形高程') || msg.includes('高程')) {
-    target = Math.max(target, 40);
-    step = '高程解算';
-    title = '采样地形高程';
-    stepIdx = 1;
-  } else if (msg.includes('草场分区')) {
-    target = Math.max(target, 58);
-    step = '草场建模';
-    title = '构建空间分区';
-    stepIdx = 2;
-  } else if (msg.includes('牧民定居点') || msg.includes('夜间休息区')) {
-    target = Math.max(target, 72);
-    step = '设施划定';
-    title = '划定定居点与围栏';
-    stepIdx = 2;
-  } else if (msg.includes('牲畜光点')) {
-    target = Math.max(target, 84);
-    step = '物联感知';
-    title = '定位北斗信标';
-    stepIdx = 3;
-  } else if (msg.includes('早出晚归') || msg.includes('运动轨迹')) {
-    target = Math.max(target, 92);
-    step = '轨迹推演';
-    title = '计算全天运动轨迹';
-    stepIdx = 4;
-  } else if (msg.includes('越界提醒')) {
-    target = Math.max(target, 96);
-    step = '态势就绪';
-    title = '配置电子围栏';
-    stepIdx = 4;
-  } else if (msg.includes('地图瓦片')) {
+  if (msg.includes('地图瓦片')) {
+    title = '加载卫星影像瓦片';
     const match = msg.match(/(\d+)\/(\d+)/);
     if (match) {
       const loaded = Number(match[1]);
       const total = Number(match[2]) || 1;
-      target = Math.max(target, Math.min(35, 12 + Math.round((loaded / total) * 22)));
+      const ratio = Math.min(1, loaded / total);
+      progress = 20 + Math.round(ratio * 40);
     } else {
-      target = Math.max(target, 25);
+      progress = 35;
     }
-    step = '瓦片加载';
-    title = '接收卫星瓦片';
-    stepIdx = 0;
-  } else {
-    target = Math.min(95, target + 4);
+  } else if (msg.includes('真实地形高程') || msg.includes('高程')) {
+    title = '采样地形高程';
+    progress = 65;
+  } else if (msg.includes('草场分区')) {
+    title = '构建草场分区';
+    progress = 75;
+  } else if (msg.includes('牧民定居点') || msg.includes('夜间休息区')) {
+    title = '划定定居点与围栏';
+    progress = 82;
+  } else if (msg.includes('牲畜光点')) {
+    title = '定位牲畜终端';
+    progress = 88;
+  } else if (msg.includes('早出晚归') || msg.includes('运动轨迹')) {
+    title = '计算运动轨迹';
+    progress = 93;
+  } else if (msg.includes('越界提醒')) {
+    title = '配置电子围栏';
+    progress = 97;
   }
 
-  targetProgress = target;
-  setStepActive(stepIdx);
-  if (loadingStepTag) loadingStepTag.textContent = step;
+  setTargetProgress(progress);
   if (loadingTitle) loadingTitle.textContent = title;
   if (loadingMessage) loadingMessage.textContent = msg;
 }
 
 function finishLoading() {
-  if (isReadyTransitioning) return;
-  isReadyTransitioning = true;
-  targetProgress = 100;
-  currentProgress = 100;
-  if (loadingPercent) loadingPercent.textContent = '100%';
-  if (loadingBarFill) {
-    loadingBarFill.style.width = '100%';
-    const tip = loadingBarFill.querySelector('.lp-bar-tip');
-    if (tip) tip.style.opacity = '1';
-  }
-  if (loadingStepTag) loadingStepTag.textContent = '就绪';
-  if (loadingTitle) loadingTitle.textContent = '初始化完成';
-  if (loadingMessage) loadingMessage.textContent = '正在进入数牧空间三维视界...';
-
-  const stepNodes = loadingPanel?.querySelectorAll('.lp-step-node');
-  stepNodes?.forEach(node => node.classList.add('active'));
-
-  loadingPanel.classList.add('lp-complete');
+  setTargetProgress(100);
+  if (loadingTitle) loadingTitle.textContent = '加载完成';
+  if (loadingMessage) loadingMessage.textContent = '正在进入场景...';
   setTimeout(() => {
-    loadingPanel.classList.add('hidden');
-    if (progressAnimId) {
-      cancelAnimationFrame(progressAnimId);
-      progressAnimId = null;
+    renderProgress(100);
+    loadingPanel?.classList.add('hidden');
+    if (progressRaf) {
+      cancelAnimationFrame(progressRaf);
+      progressRaf = null;
     }
-  }, 480);
+  }, 350);
 }
 
 function failLoading(title, message) {
-  isReadyTransitioning = true;
-  if (progressAnimId) {
-    cancelAnimationFrame(progressAnimId);
-    progressAnimId = null;
+  if (progressRaf) {
+    cancelAnimationFrame(progressRaf);
+    progressRaf = null;
   }
-  loadingPanel.classList.remove('hidden', 'lp-complete');
-  loadingPanel.classList.add('error');
+  loadingPanel?.classList.remove('hidden');
+  loadingPanel?.classList.add('error');
   if (loadingTitle) loadingTitle.textContent = title;
   if (loadingMessage) loadingMessage.textContent = message;
   serviceStatus.textContent = title;
@@ -323,6 +287,10 @@ function layoutMessageFeed() {
   const legend = document.querySelector('.legend-panel');
   const bar = document.querySelector('.statusbar');
   if (!feed || !legend) return;
+  if (feed.classList.contains('collapsed')) {
+    feed.style.height = '';
+    return;
+  }
   const gap = 12;
   const heightScale = 0.9;
   const preferredHeight = Math.min(innerHeight * 0.33, 360);
@@ -376,7 +344,55 @@ function initLegendDrawer() {
 }
 initLegendDrawer();
 
-messageClear?.addEventListener('click', () => messageFeed.clear());
+// 消息提醒抽屉栏：可收纳/展开，默认收起，支持 localStorage 状态持久化。
+const messageFeedEl = document.querySelector('#message-feed');
+const messageToggle = document.querySelector('#message-toggle');
+const MESSAGE_COLLAPSED_KEY = 'pasture3d:message-collapsed';
+
+function setMessageCollapsed(collapsed, { persist = true } = {}) {
+  if (!messageFeedEl || !messageToggle) return;
+  messageFeedEl.classList.toggle('collapsed', collapsed);
+  messageToggle.setAttribute('aria-expanded', String(!collapsed));
+  messageToggle.setAttribute('aria-label', collapsed ? '展开消息提醒面板' : '收起消息提醒面板');
+  messageToggle.title = collapsed ? '展开' : '收起';
+  if (collapsed) {
+    messageFeedEl.style.height = '';
+  } else {
+    layoutMessageFeed();
+  }
+  if (persist) {
+    try {
+      localStorage.setItem(MESSAGE_COLLAPSED_KEY, collapsed ? '1' : '0');
+    } catch (error) {
+      // 隐私模式等场景下 localStorage 不可用，忽略即可。
+    }
+  }
+}
+
+function initMessageDrawer() {
+  if (!messageFeedEl || !messageToggle) return;
+  let collapsed = true;
+  try {
+    const saved = localStorage.getItem(MESSAGE_COLLAPSED_KEY);
+    if (saved !== null) {
+      collapsed = saved === '1';
+    }
+  } catch (error) {
+    collapsed = true;
+  }
+  setMessageCollapsed(collapsed, { persist: false });
+
+  messageFeedEl.querySelector('.message-feed-header')?.addEventListener('click', (event) => {
+    if (event.target.closest('#message-clear')) return;
+    setMessageCollapsed(!messageFeedEl.classList.contains('collapsed'));
+  });
+}
+initMessageDrawer();
+
+messageClear?.addEventListener('click', (event) => {
+  event.stopPropagation();
+  messageFeed.clear();
+});
 
 function formatSimulationHour(hour) {
   const minutes = Math.round((hour % 24) * 60) % 1440;

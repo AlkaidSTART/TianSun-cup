@@ -95,11 +95,15 @@
         </div>
       </aside>
 
-      <aside id="message-feed" class="message-feed" aria-label="消息提醒">
+      <aside id="message-feed" class="message-feed collapsed" aria-label="消息提醒">
         <header class="message-feed-header">
           <span class="message-feed-title">消息提醒</span>
+          <span class="message-feed-vertical" aria-hidden="true">消息提醒</span>
           <span id="message-count" class="message-count">0</span>
           <button id="message-clear" class="message-clear" type="button">清空</button>
+          <button id="message-toggle" class="message-toggle" type="button" aria-expanded="false" aria-controls="message-list" aria-label="展开消息提醒面板" title="展开">
+            <span class="message-toggle-icon" aria-hidden="true">‹</span>
+          </button>
         </header>
         <ul id="message-list" class="message-list" aria-live="polite" aria-relevant="additions"></ul>
       </aside>
@@ -123,9 +127,40 @@
       <div id="scene-tooltip" class="scene-tooltip" role="status" hidden></div>
 
       <div id="loading-panel" class="loading-panel">
-        <span class="loader" aria-hidden="true"></span>
-        <strong id="loading-title">正在连接天地图</strong>
-        <span id="loading-message">准备卫星影像与地形高程...</span>
+        <div class="lp-corners" aria-hidden="true">
+          <span class="lp-corner lp-corner--tl"></span>
+          <span class="lp-corner lp-corner--tr"></span>
+          <span class="lp-corner lp-corner--bl"></span>
+          <span class="lp-corner lp-corner--br"></span>
+        </div>
+
+        <div class="loading-box">
+          <div class="loading-chip" aria-hidden="true">
+            <span class="loading-chip-dot"></span>
+            <span>数牧空间 · 三维监测平台</span>
+          </div>
+
+          <div class="loading-spinner-wrap" aria-hidden="true">
+            <span class="loading-orbit-ring"></span>
+            <span class="loader"></span>
+            <span class="loading-center-dot"></span>
+          </div>
+
+          <div class="loading-texts">
+            <strong id="loading-title">正在连接天地图</strong>
+            <span id="loading-message">准备卫星影像与地形高程...</span>
+          </div>
+
+          <div class="loading-progress-wrap" aria-hidden="true">
+            <div class="loading-progress-track">
+              <div id="loading-bar-fill" class="loading-progress-bar" style="width: 15%;"></div>
+            </div>
+            <div class="loading-meta">
+              <span id="loading-percent" class="loading-percent">15%</span>
+              <span class="loading-coords">102.000°E · 33.000°N</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div id="prohibited-modal" class="prohibited-modal" hidden>
