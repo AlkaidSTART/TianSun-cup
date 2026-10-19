@@ -20,13 +20,16 @@ export function createGroundSampler(map, { timeoutMs = 12000, loadGeometry } = {
     entry.promise = new Promise((resolve, reject) => {
       let finished = false;
       const fail = error => {
+        console.error('[DEM tileAt fail]:', key, error);
         if (finished) return;
         finished = true; clearTimeout(timer); cache.delete(key); reject(error);
       };
       const timer = setTimeout(() => fail(new Error('高程瓦片加载超时')), timeoutMs);
       entry.cancel = () => fail(aborted());
       const params = { source, ...coord, x: map.projection.getTileXWithCenterLon(coord.x, coord.z), projBounds: bounds };
+      console.log('[DEM tileAt params]:', params);
       Promise.resolve().then(() => loadGeometry ? loadGeometry(params) : getDEMLoader(source.dataType).load(params)).then(geometry => {
+        console.log('[DEM tileAt geometry loaded]:', geometry);
         if (disposed || finished) { geometry.dispose(); return; }
         finished = true; clearTimeout(timer);
         const mesh = new THREE.Mesh(geometry, material);

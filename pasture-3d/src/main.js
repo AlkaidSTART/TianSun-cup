@@ -10,138 +10,43 @@ const root = document.querySelector('#scene-container');
 const loadingPanel = document.querySelector('#loading-panel');
 const loadingTitle = document.querySelector('#loading-title');
 const loadingMessage = document.querySelector('#loading-message');
-const loadingPercent = document.querySelector('#loading-percent');
-const loadingBarFill = document.querySelector('#loading-bar-fill');
-const loadingStepTag = document.querySelector('#loading-step-tag');
 const serviceStatus = document.querySelector('#service-status');
 const serviceDot = document.querySelector('#service-dot');
 
-let currentProgress = 6;
-let targetProgress = 16;
-let progressAnimId = null;
-let isReadyTransitioning = false;
-
-function setStepActive(stepIndex) {
-  const stepNodes = loadingPanel?.querySelectorAll('.lp-step-node');
-  stepNodes?.forEach((node, idx) => {
-    node.classList.toggle('active', idx <= stepIndex);
-  });
-}
-
-function tickLoading() {
-  if (currentProgress < targetProgress) {
-    const diff = targetProgress - currentProgress;
-    const step = Math.max(0.35, diff * 0.12);
-    currentProgress = Math.min(targetProgress, currentProgress + step);
-    if (loadingPercent) loadingPercent.textContent = `${Math.round(currentProgress)}%`;
-    if (loadingBarFill) {
-      loadingBarFill.style.width = `${currentProgress}%`;
-      const tip = loadingBarFill.querySelector('.lp-bar-tip');
-      if (tip) tip.style.opacity = currentProgress > 1 ? '1' : '0';
-    }
-  }
-  if (!isReadyTransitioning || currentProgress < 100) {
-    progressAnimId = requestAnimationFrame(tickLoading);
-  }
-}
-progressAnimId = requestAnimationFrame(tickLoading);
-
 function updateLoadingState(msg) {
-  if (isReadyTransitioning) return;
-  let target = targetProgress;
-  let step = '数据载入';
   let title = '正在连接天地图';
-  let stepIdx = 0;
 
   if (msg.includes('真实地形高程') || msg.includes('高程')) {
-    target = Math.max(target, 40);
-    step = '高程解算';
     title = '采样地形高程';
-    stepIdx = 1;
   } else if (msg.includes('草场分区')) {
-    target = Math.max(target, 58);
-    step = '草场建模';
-    title = '构建空间分区';
-    stepIdx = 2;
+    title = '构建草场分区';
   } else if (msg.includes('牧民定居点') || msg.includes('夜间休息区')) {
-    target = Math.max(target, 72);
-    step = '设施划定';
     title = '划定定居点与围栏';
-    stepIdx = 2;
   } else if (msg.includes('牲畜光点')) {
-    target = Math.max(target, 84);
-    step = '物联感知';
-    title = '定位北斗信标';
-    stepIdx = 3;
+    title = '定位牲畜终端';
   } else if (msg.includes('早出晚归') || msg.includes('运动轨迹')) {
-    target = Math.max(target, 92);
-    step = '轨迹推演';
-    title = '计算全天运动轨迹';
-    stepIdx = 4;
+    title = '计算运动轨迹';
   } else if (msg.includes('越界提醒')) {
-    target = Math.max(target, 96);
-    step = '态势就绪';
     title = '配置电子围栏';
-    stepIdx = 4;
   } else if (msg.includes('地图瓦片')) {
-    const match = msg.match(/(\d+)\/(\d+)/);
-    if (match) {
-      const loaded = Number(match[1]);
-      const total = Number(match[2]) || 1;
-      target = Math.max(target, Math.min(35, 12 + Math.round((loaded / total) * 22)));
-    } else {
-      target = Math.max(target, 25);
-    }
-    step = '瓦片加载';
-    title = '接收卫星瓦片';
-    stepIdx = 0;
-  } else {
-    target = Math.min(95, target + 4);
+    title = '加载卫星影像瓦片';
   }
 
-  targetProgress = target;
-  setStepActive(stepIdx);
-  if (loadingStepTag) loadingStepTag.textContent = step;
   if (loadingTitle) loadingTitle.textContent = title;
   if (loadingMessage) loadingMessage.textContent = msg;
 }
 
 function finishLoading() {
-  if (isReadyTransitioning) return;
-  isReadyTransitioning = true;
-  targetProgress = 100;
-  currentProgress = 100;
-  if (loadingPercent) loadingPercent.textContent = '100%';
-  if (loadingBarFill) {
-    loadingBarFill.style.width = '100%';
-    const tip = loadingBarFill.querySelector('.lp-bar-tip');
-    if (tip) tip.style.opacity = '1';
-  }
-  if (loadingStepTag) loadingStepTag.textContent = '就绪';
-  if (loadingTitle) loadingTitle.textContent = '初始化完成';
-  if (loadingMessage) loadingMessage.textContent = '正在进入数牧空间三维视界...';
-
-  const stepNodes = loadingPanel?.querySelectorAll('.lp-step-node');
-  stepNodes?.forEach(node => node.classList.add('active'));
-
-  loadingPanel.classList.add('lp-complete');
+  if (loadingTitle) loadingTitle.textContent = '加载完成';
+  if (loadingMessage) loadingMessage.textContent = '正在进入场景...';
   setTimeout(() => {
-    loadingPanel.classList.add('hidden');
-    if (progressAnimId) {
-      cancelAnimationFrame(progressAnimId);
-      progressAnimId = null;
-    }
-  }, 480);
+    loadingPanel?.classList.add('hidden');
+  }, 200);
 }
 
 function failLoading(title, message) {
-  isReadyTransitioning = true;
-  if (progressAnimId) {
-    cancelAnimationFrame(progressAnimId);
-    progressAnimId = null;
-  }
-  loadingPanel.classList.remove('hidden', 'lp-complete');
-  loadingPanel.classList.add('error');
+  loadingPanel?.classList.remove('hidden');
+  loadingPanel?.classList.add('error');
   if (loadingTitle) loadingTitle.textContent = title;
   if (loadingMessage) loadingMessage.textContent = message;
   serviceStatus.textContent = title;
