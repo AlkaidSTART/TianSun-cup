@@ -4,6 +4,7 @@ import { promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { installMaxKBMock } from '../test-helpers/maxkb-mock.js'
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url))
 const seedFile = path.resolve(currentDir, '..', 'data', 'livestock.seed.json')
@@ -15,6 +16,7 @@ test('contract: pasture, alert, telemetry and consultation endpoints', async () 
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tiansun-features-'))
   process.env.LIVESTOCK_DB_FILE = path.join(tempDir, 'features.sqlite')
   process.env.LIVESTOCK_SEED_FILE = seedFile
+  const maxkb = installMaxKBMock()
   let store
   let server
   try {
@@ -38,7 +40,7 @@ test('contract: pasture, alert, telemetry and consultation endpoints', async () 
     }
     async function login(username, password) {
       const response = await call('/api/auth/login', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Client-Platform': 'mp-weixin' },
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Client-Platform': 'app-plus' },
         body: JSON.stringify({ username, password }),
       })
       assert.equal(response.body.code, 0, JSON.stringify(response.body))
@@ -353,7 +355,7 @@ test('contract: pasture, alert, telemetry and consultation endpoints', async () 
     })
     assert.deepEqual(
       [consultation.status, consultation.body.message, consultation.body.data.statusLabel, consultation.body.data.title, consultation.body.data.messageCount],
-      [201, '问诊已提交', '待接诊', `${newLivestockId} · 体温偏高`, 1],
+      [201, 'AI 问诊已创建', 'AI 已回复', `${newLivestockId} · 体温偏高`, 2],
     )
     assert.match(consultation.body.data.code, /^VC-\d{8}-\d{3}$/)
     const consultationId = consultation.body.data.id
@@ -362,17 +364,31 @@ test('contract: pasture, alert, telemetry and consultation endpoints', async () 
     assert.deepEqual([listed.body.data.length, listed.body.data[0].id], [1, consultationId])
 
     const detail = await call(`/api/consultations/${consultationId}`, { headers: adminHeaders })
-    assert.equal(detail.body.data.messages.length, 1)
-    assert.deepEqual(detail.body.data.messages[0].role, 'doctor')
+    assert.equal(detail.body.data.messages.length, 2)
+    assert.deepEqual(detail.body.data.messages.map((message) => message.role), ['user', 'assistant'])
+    assert.match(maxkb.calls[0].messages[0].content, /体温偏高/)
 
     const reply = await call(`/api/consultations/${consultationId}/messages`, {
       method: 'POST', headers: adminHeaders, body: JSON.stringify({ text: '请先隔离观察，明早复测体温。' }),
     })
-    assert.deepEqual([reply.status, reply.body.message, reply.body.data.role], [201, '已发送', 'doctor'])
+    assert.deepEqual([reply.status, reply.body.message, reply.body.data.role], [201, '已发送', 'user'])
 
     const afterReply = await call(`/api/consultations/${consultationId}`, { headers: adminHeaders })
-    assert.deepEqual([afterReply.body.data.status, afterReply.body.data.statusLabel, afterReply.body.data.messages.length], ['answered', '已回复', 2])
-    assert.equal(afterReply.body.data.summary, '请先隔离观察，明早复测体温。')
+    assert.deepEqual([afterReply.body.data.status, afterReply.body.data.statusLabel, afterReply.body.data.messages.length], ['answered', 'AI 已回复', 4])
+    assert.equal(afterReply.body.data.summary, 'AI 测试回复 2')
+    assert.equal(maxkb.calls[1].chat_id, maxkb.chatIds[0])
+    assert.equal(maxkb.calls[1].messages[0].content, '请先隔离观察，明早复测体温。')
+
+    maxkb.failOnce()
+    const failedFollowup = await call(`/api/consultations/${consultationId}/messages`, {
+      method: 'POST', headers: adminHeaders, body: JSON.stringify({ text: '补充：精神不振' }),
+    })
+    assert.deepEqual([failedFollowup.status, failedFollowup.body.data.aiError], [201, true])
+    const pendingFollowup = await call(`/api/consultations/${consultationId}`, { headers: adminHeaders })
+    assert.deepEqual([pendingFollowup.body.data.status, pendingFollowup.body.data.messages.at(-1).role], ['open', 'user'])
+    const retriedFollowup = await call(`/api/consultations/${consultationId}/retry`, { method: 'POST', headers: adminHeaders })
+    assert.deepEqual([retriedFollowup.status, retriedFollowup.body.data.status], [200, 'answered'])
+    assert.equal(maxkb.calls.at(-1).chat_id, maxkb.chatIds[1], 'retry keeps the existing MaxKB conversation')
 
     const closed = await call(`/api/consultations/${consultationId}`, {
       method: 'PATCH', headers: adminHeaders, body: JSON.stringify({ status: 'closed' }),
@@ -383,6 +399,60 @@ test('contract: pasture, alert, telemetry and consultation endpoints', async () 
       method: 'POST', headers: adminHeaders, body: JSON.stringify({ text: '还能说话吗' }),
     })
     assert.deepEqual([sendAfterClose.status, sendAfterClose.body.message], [400, '该问诊已关闭'])
+
+    maxkb.failOnce()
+    const failedAI = await call('/api/consultations', {
+      method: 'POST', headers: adminHeaders, body: JSON.stringify({ symptoms: ['跛行'] }),
+    })
+    assert.equal(failedAI.status, 201)
+    assert.equal(failedAI.body.data.aiError, true)
+    assert.deepEqual(failedAI.body.data.messages.map((message) => message.role), ['user'])
+    const duplicate = await call(`/api/consultations/${failedAI.body.data.id}/messages`, {
+      method: 'POST', headers: adminHeaders, body: JSON.stringify({ text: '再问一次' }),
+    })
+    assert.equal(duplicate.status, 409)
+    const retried = await call(`/api/consultations/${failedAI.body.data.id}/retry`, {
+      method: 'POST', headers: adminHeaders,
+    })
+    assert.deepEqual([retried.status, retried.body.data.status, retried.body.data.messages.length], [200, 'answered', 2])
+
+    // Direct chat streams a saved user turn, incremental AI deltas, and a final detail.
+    async function callStream(url, data) {
+      const response = await fetch(`${base}${url}`, {
+        method: 'POST', headers: adminHeaders, ...(data ? { body: JSON.stringify(data) } : {}),
+      })
+      assert.equal(response.headers.get('content-type').startsWith('application/x-ndjson'), true)
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      const first = await reader.read()
+      assert.equal(first.done, false)
+      let text = decoder.decode(first.value, { stream: true })
+      assert.match(text, /"type":"conversation"/)
+      assert.doesNotMatch(text, /"type":"done"/, 'the first chunk arrives before AI finishes')
+      while (true) {
+        const part = await reader.read()
+        if (part.done) break
+        text += decoder.decode(part.value, { stream: true })
+      }
+      text += decoder.decode()
+      return { status: response.status, events: text.trim().split('\n').map((line) => JSON.parse(line)) }
+    }
+    const firstStream = await callStream('/api/consultations/stream', { text: '牦牛咳嗽两天' })
+    assert.deepEqual(firstStream.events.map((event) => event.type), ['conversation', 'delta', 'delta', 'done'])
+    assert.equal(firstStream.events[0].detail.messages[0].text, '牦牛咳嗽两天')
+    assert.equal(firstStream.events.at(-1).detail.status, 'answered')
+    assert.equal(firstStream.events.at(-1).detail.messages.at(-1).text, firstStream.events.filter((event) => event.type === 'delta').map((event) => event.text).join(''))
+    const streamedId = firstStream.events[0].detail.id
+    const streamChatId = maxkb.chatIds.at(-1)
+    const followupStream = await callStream(`/api/consultations/${streamedId}/messages/stream`, { text: '还有流涕' })
+    assert.equal(followupStream.events.at(-1).detail.messages.length, 4)
+    assert.equal(maxkb.calls.at(-1).chat_id, streamChatId)
+    maxkb.failOnce()
+    const failedStream = await callStream('/api/consultations/stream', { text: '羊跛行' })
+    assert.deepEqual(failedStream.events.map((event) => event.type), ['conversation', 'error'])
+    const recovered = await callStream(`/api/consultations/${failedStream.events[0].detail.id}/retry/stream`)
+    assert.equal(recovered.events.at(-1).type, 'done')
+    assert.equal(recovered.events.at(-1).detail.messages.length, 2)
 
     // --- ownership isolation across the new endpoints ---
     const alice = await createOperator('alice', '甲')
@@ -413,8 +483,13 @@ test('contract: pasture, alert, telemetry and consultation endpoints', async () 
       body: JSON.stringify({ symptoms: ['食欲下降'], description: '' }),
     })
     assert.equal(aliceConsultation.status, 201)
+    assert.equal(maxkb.calls.at(-1).chat_id, undefined, 'a different consultation opens a new MaxKB conversation')
     const bobRead = await call(`/api/consultations/${aliceConsultation.body.data.id}`, { headers: bob.headers })
     assert.deepEqual([bobRead.status, bobRead.body.message], [404, '未找到该问诊'])
+    const bobStream = await call(`/api/consultations/${aliceConsultation.body.data.id}/messages/stream`, {
+      method: 'POST', headers: bob.headers, body: JSON.stringify({ text: '越权提问' }),
+    })
+    assert.equal(bobStream.status, 404)
     const bobClose = await call(`/api/consultations/${aliceConsultation.body.data.id}`, {
       method: 'PATCH', headers: bob.headers, body: JSON.stringify({ status: 'closed' }),
     })
@@ -422,8 +497,23 @@ test('contract: pasture, alert, telemetry and consultation endpoints', async () 
 
     const aliceList = await call('/api/consultations', { headers: alice.headers })
     assert.deepEqual(aliceList.body.data.map((item) => item.id), [aliceConsultation.body.data.id])
+    const bobRetry = await call(`/api/consultations/${aliceConsultation.body.data.id}/retry`, { method: 'POST', headers: bob.headers })
+    assert.equal(bobRetry.status, 404)
+    const adminReplyToAlice = await call(`/api/consultations/${aliceConsultation.body.data.id}/messages`, {
+      method: 'POST', headers: adminHeaders, body: JSON.stringify({ text: '人工回复' }),
+    })
+    assert.equal(adminReplyToAlice.status, 403)
     const bobList = await call('/api/consultations', { headers: bob.headers })
     assert.equal(bobList.body.data.length, 0)
+
+    const beforeUnconfigured = (await call('/api/consultations', { headers: adminHeaders })).body.data.length
+    delete process.env.MAXKB_API_KEY
+    const unconfigured = await call('/api/consultations', {
+      method: 'POST', headers: adminHeaders, body: JSON.stringify({ symptoms: ['咳嗽'] }),
+    })
+    assert.equal(unconfigured.status, 503)
+    assert.equal((await call('/api/consultations', { headers: adminHeaders })).body.data.length, beforeUnconfigured)
+    process.env.MAXKB_API_KEY = 'agent-test-key'
 
     // System-owned pressure alerts stay visible to every account.
     const bobAlerts = await call('/api/alerts?type=pressure', { headers: bob.headers })
@@ -444,6 +534,7 @@ test('contract: pasture, alert, telemetry and consultation endpoints', async () 
   } finally {
     if (server) await new Promise((resolve) => server.close(resolve))
     store?.closeDatabase()
+    maxkb.restore()
     delete process.env.LIVESTOCK_DB_FILE
     delete process.env.LIVESTOCK_SEED_FILE
     await fs.rm(tempDir, { recursive: true, force: true })

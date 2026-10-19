@@ -14,8 +14,9 @@
 
 | 组成 | 当前路径 | 职责 |
 | --- | --- | --- |
-| Web 大屏 | `pasture-3d/` | Three.js / Vite 大屏工程（独立 pnpm 项目），包含主页面和 legacy 页面。 |
-| H5 端 | `apps/pasture-app/` | uni-app（Vue 3 + Vite）工程；可构建 H5 与微信小程序，开发环境 `/api` 代理至 Express。 |
+| Web 大屏 | `pasture-3d/` | Three.js / Vite 大屏工程（独立 pnpm 项目），Docker 与 `/3d` 发布源，包含主页面和 legacy 页面。 |
+| 大屏 workspace 副本 | `apps/pasture-3d/` | 同一大屏工程的 npm workspace 副本，提供 `src/runtime/` 与 `scripts/build-mobile-runtime.mjs` 供 H5/App 复用，可独立构建。 |
+| H5 端 | `apps/pasture-app/` | uni-app（Vue 3 + Vite）工程；可构建原生 App（Android/iOS）与 H5，开发环境 `/api` 代理至 Express。 |
 | 管理后台 | `apps/pasture-admin/` | Vite 构建的牲畜档案管理后台，开发环境 `/api` 代理至 Express。 |
 | API 服务 | `services/api/` | Express 路由、SQLite store/db 与测试，仅托管前端构建产物。 |
 | 统一工具与部署 | 根目录 | npm workspaces、Dockerfile、Compose、`start.sh`。 |
@@ -27,7 +28,8 @@
 ```text
 apps/pasture-app/      # H5 / uni-app + Vue/Vite
 apps/pasture-admin/    # 管理后台 / Vite
-pasture-3d/            # Web 大屏 / Three.js/Vite（独立 pnpm 项目）
+apps/pasture-3d/       # 大屏 workspace 副本（供 App 复用运行时与独立构建）
+pasture-3d/            # Web 大屏 / Three.js/Vite（独立 pnpm 项目，Docker 发布源）
 services/api/          # Express + SQLite
   src/                 # Express app、API routers、store、db
   test/                # store 与 HTTP/API 测试
@@ -42,7 +44,7 @@ package-lock.json      # npm workspaces 锁文件
 pasture-3d/pnpm-lock.yaml  # 大屏独立 pnpm 锁文件
 ```
 
-根工作区包括 `apps/*` 与 `services/*`。大屏 `pasture-3d/` 是带独立 `pnpm-lock.yaml` 的 pnpm 项目，不属于 npm workspaces：在其目录内 `pnpm install && pnpm dev` 即可单独启动，根脚本 `npm run dev:screen`（别名 `dev:3d`）只是 `pnpm --dir pasture-3d dev` 的便捷封装；其余工作区依赖仍由根 `package-lock.json` 锁定。
+根工作区包括 `apps/*` 与 `services/*`。大屏 `pasture-3d/` 是带独立 `pnpm-lock.yaml` 的 pnpm 项目，不属于 npm workspaces：在其目录内 `pnpm install && pnpm dev` 即可单独启动，根脚本 `npm run dev:screen`（别名 `dev:3d`）只是 `pnpm --dir pasture-3d dev` 的便捷封装；其余工作区依赖仍由根 `package-lock.json` 锁定。`apps/pasture-3d/` 是大屏工程在 npm workspaces 内的副本，供 App 首页 3D 的移动端运行时构建与独立构建使用。
 
 ## 4. HTTP 路由布局
 

@@ -13,6 +13,7 @@ interface RequestOptions {
   method?: RequestMethod
   data?: string | Record<string, unknown> | ArrayBuffer
   headers?: Record<string, string>
+  timeout?: number
 }
 
 let configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -29,19 +30,10 @@ export function request<T>(path: string, options: RequestOptions = {}): Promise<
       return
     }
     // #endif
-    // #ifdef MP-WEIXIN
-    if (!/^https?:\/\//i.test(apiBaseUrl)) {
-      reject(new Error('微信小程序需将 VITE_API_BASE_URL 配置为可访问的完整 API 地址'))
-      return
-    }
-    // #endif
     const token = getAuthToken()
     const platformHeaders: Record<string, string> = {}
     // #ifdef H5
     platformHeaders['X-Requested-With'] = 'TianSun'
-    // #endif
-    // #ifdef MP-WEIXIN
-    platformHeaders['X-Client-Platform'] = 'mp-weixin'
     // #endif
     // #ifdef APP-PLUS
     platformHeaders['X-Client-Platform'] = 'app-plus'
@@ -49,6 +41,7 @@ export function request<T>(path: string, options: RequestOptions = {}): Promise<
     uni.request({
       url: `${apiBaseUrl}${path}`,
       method: (options.method || 'GET') as UniApp.RequestOptions['method'],
+      timeout: options.timeout,
       data: options.data as UniApp.RequestOptions['data'],
       header: {
         'Content-Type': 'application/json',

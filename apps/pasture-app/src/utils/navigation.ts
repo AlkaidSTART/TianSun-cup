@@ -1,6 +1,6 @@
 import { hasAuthSessionHint, goToLogin } from '../services/session'
 
-export type AppView = 'dashboard' | 'alerts' | 'livestock' | 'pasture' | 'profile' | 'consultation'
+export type AppView = 'dashboard' | 'alerts' | 'livestock' | 'pasture' | 'profile' | 'consultation' | 'help'
 
 const routes: Record<AppView, string> = {
   dashboard: '/pages/dashboard/index',
@@ -9,10 +9,14 @@ const routes: Record<AppView, string> = {
   pasture: '/pages/pasture/index',
   profile: '/pages/profile/index',
   consultation: '/pages/consultation/index',
+  help: '/pages/help/index',
 }
 
+// 以子页面形式叠加在当前页之上的视图（带返回按钮），其余视图会替换当前页。
+const stackViews: ReadonlySet<AppView> = new Set(['consultation', 'help'])
+
 export function isAppView(value: string): value is AppView {
-  return value in routes
+  return Object.prototype.hasOwnProperty.call(routes, value)
 }
 
 export function navigateToView(view: string) {
@@ -24,10 +28,12 @@ export function navigateToView(view: string) {
   const currentRoute = pages[pages.length - 1]?.route
   if (currentRoute && `/${currentRoute}` === url) return
 
-  if (view === 'consultation') {
+  // Let uni-app update its router and page stack along with the browser URL.
+  if (currentRoute === 'pages/login/index') {
+    uni.reLaunch({ url })
+  } else if (stackViews.has(view)) {
     uni.navigateTo({ url })
-    return
+  } else {
+    uni.redirectTo({ url })
   }
-
-  uni.reLaunch({ url })
 }

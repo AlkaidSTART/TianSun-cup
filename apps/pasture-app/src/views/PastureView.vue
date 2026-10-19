@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { X } from 'lucide-vue-next'
 import PageChrome from '../components/PageChrome.vue'
 import { navigateToView } from '../utils/navigation'
+import { formatClockTime } from '../utils/datetime'
 import { pastureApi, type PastureDetail, type PastureZone } from '../services/pastureApi'
 
 const zones = ref<PastureZone[]>([])
@@ -43,7 +44,7 @@ async function load() {
   loadError.value = ''
   try {
     zones.value = await pastureApi.list()
-    updatedAt.value = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+    updatedAt.value = formatClockTime(new Date())
   } catch (error) {
     loadError.value = error instanceof Error ? error.message : '草场数据加载失败'
   } finally {
@@ -75,7 +76,7 @@ onMounted(load)
 </script>
 
 <template>
-  <PageChrome active="pasture" @refresh="load">
+  <PageChrome active="pasture">
     <view class="content">
       <view class="page-head">
         <view>

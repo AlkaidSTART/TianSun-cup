@@ -14,15 +14,6 @@
             "mode" : "hash"
         }
     },
-    "mp-weixin" : {
-        "appid" : "",
-        "setting" : {
-            "urlCheck" : false,
-            "es6" : true,
-            "minified" : true
-        },
-        "usingComponents" : true
-    },
     "vueVersion" : "3",
     "app-plus" : {
         "distribute" : {

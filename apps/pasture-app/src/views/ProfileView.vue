@@ -5,7 +5,6 @@ import AppDateTimePicker from '../components/AppDateTimePicker.vue'
 import AppIcon from '../components/AppIcon.vue'
 import AppSelect from '../components/AppSelect.vue'
 import PageChrome from '../components/PageChrome.vue'
-import { authApi } from '../services/authApi'
 import { currentUser } from '../services/session'
 import { navigateToView } from '../utils/navigation'
 import {
@@ -47,9 +46,6 @@ const notePlaceholders: Record<TodoType, string> = {
 }
 
 const nightMode = ref(false)
-const passwordOpen = ref(false)
-const passwordBusy = ref(false)
-const passwordForm = reactive({ current: '', next: '', confirm: '' })
 const toast = ref('')
 const todoDialogOpen = ref(false)
 const todoStep = ref<'type' | 'form'>('type')
@@ -79,23 +75,6 @@ const editDialogOpen = computed(() => editingTodo.value !== null)
 
 function showMessage(message: string) { toast.value = message; if (toastTimer) clearTimeout(toastTimer); toastTimer = setTimeout(() => { toast.value = '' }, 2400) }
 function errorText(error: unknown) { return error instanceof Error ? error.message : '操作失败' }
-async function submitOwnPassword() {
-  if (passwordBusy.value) return
-  if (passwordForm.next !== passwordForm.confirm) { showMessage('两次新密码不一致'); return }
-  passwordBusy.value = true
-  try {
-    await authApi.changePassword(passwordForm.current, passwordForm.next)
-    Object.assign(passwordForm, { current: '', next: '', confirm: '' })
-    passwordOpen.value = false
-    showMessage('密码已修改，其他设备需重新登录')
-  } catch (error) { showMessage(errorText(error)) }
-  finally { passwordBusy.value = false }
-}
-async function signOut() {
-  try { await authApi.logout() } catch { /* local session is cleared in finally */ }
-  todoItems.value = []
-  uni.reLaunch({ url: '/pages/login/index' })
-}
 onMounted(async () => {
   try { await loadTodos() } catch (error) { showMessage(errorText(error)) }
 })
@@ -210,7 +189,14 @@ function buildDraft(): TodoDraft | null {
     return { type, date, time, title: `${todoForm.herd}疫苗接种`, detail: detail || '按防疫计划完成接种' }
   }
   if (type === 'maintenance') return { type, date, time, title: `${todoForm.area}维护`, detail: withNote('草场与围栏维护作业') }
-  if (type === 'device') return { type, date, time, title: `${todoForm.deviceId.trim()} 检修`, detail: withNote('检查设备状态并恢复上报') }
+  if (type === 'device') {
+    const deviceId = todoForm.deviceId.trim()
+    if (!deviceId) {
+      showMessage('请填写设备编号')
+      return null
+    }
+    return { type, date, time, title: `${deviceId} 检修`, detail: withNote('检查设备状态并恢复上报') }
+  }
   const title = todoForm.title.trim()
   if (!title) {
     showMessage('请填写事项名称')
@@ -223,6 +209,11 @@ async function submitTodo() {
 
   let draft: TodoDraft | null = null
   if (todoForm.type === 'rotation') {
+    const amount = Number(todoForm.amount)
+    if (!Number.isFinite(amount) || amount < 1) {
+      showMessage('请填写预计转移数量')
+      return
+    }
     if (todoForm.from === todoForm.to) {
       showMessage('起始草场和目标草场不能相同')
       return
@@ -248,26 +239,23 @@ async function submitTodo() {
   } catch (error) {
     showMessage(errorText(error))
   } finally {
-    editSaving.value = false
+    todoSaving.value = false
   }
 }
 function navigate(view: string) { navigateToView(view) }
 </script>
 
 <template>
-  <PageChrome active="profile" :refresh="false" @navigate="navigate">
+  <PageChrome active="profile" @navigate="navigate">
     <main class="content">
       <div class="page-head"><div><div class="eyebrow">ACCOUNT & SETTINGS</div><h1 class="page-title">我的</h1><p class="page-description">管理个人信息、通知与显示偏好</p></div></div>
       <section class="panel"><div class="profile-summary"><div class="avatar profile-avatar">{{ currentUser?.displayName?.slice(0, 1) || '牧' }}</div><div><strong>{{ currentUser?.displayName || '当前用户' }}</strong><div>{{ currentUser?.role === 'admin' ? '管理员' : '操作员' }} · {{ currentUser?.username }}</div></div><span class="status ok">在线</span></div></section>
-      <section class="panel section account-panel">
-        <div class="panel-head"><div><div class="panel-title">账户安全</div><div class="panel-meta">登录账号：{{ currentUser?.username }}</div></div></div>
-        <div class="account-actions"><button class="btn btn-secondary" type="button" @click="passwordOpen = !passwordOpen">修改密码</button><button class="btn btn-secondary" type="button" @click="signOut">退出登录</button></div>
-        <div v-if="passwordOpen" class="account-password"><input v-model="passwordForm.current" type="password" placeholder="当前密码"><input v-model="passwordForm.next" type="password" placeholder="新密码（6–128 位）"><input v-model="passwordForm.confirm" type="password" placeholder="确认新密码"><button class="btn btn-primary" type="button" :disabled="passwordBusy" @click="submitOwnPassword">{{ passwordBusy ? '保存中…' : '保存新密码' }}</button></div>
-      </section>
       <div class="grid-2 section"><section class="panel"><div class="panel-head"><div class="panel-title">示范区信息</div><span class="panel-meta">只读</span></div><div class="list profile-info"><div class="list-row"><span class="list-main"><strong>四川 · 阿坝县</strong><small>高原放牧示范区</small></span><span class="mono muted-value">P-A</span></div><div class="list-row"><span class="list-main"><strong>当前数据源</strong><small>牲畜模拟 · 待办 SQLite</small></span><span class="status ok">稳定</span></div><div class="list-row"><span class="list-main"><strong>最近同步</strong><small>2026 / 09 / 07 14:32</small></span><span class="mono muted-value">12 秒前</span></div></div></section></div>
-      <section class="panel section"><div class="panel-head"><div><div class="panel-title">待办事项</div><div class="panel-meta">共 {{ todoItems.length }} 项 · 已连接数据库</div></div><button class="link-btn" type="button" @click="openTodoDialog">添加</button></div><div v-if="todoLoading" class="list"><div class="list-row"><span class="list-main"><strong>正在加载待办事项</strong><small>正在从 SQLite 数据库读取数据</small></span></div></div><div v-else-if="todoError" class="list"><div class="list-row"><span class="list-main"><strong>待办事项加载失败</strong><small>{{ todoError }}</small></span></div></div><div v-else-if="todoItems.length === 0" class="list"><div class="list-row"><span class="list-main"><strong>暂无待办事项</strong><small>点击右上角添加，保存后会写入数据库</small></span></div></div><div v-else class="list"><button v-for="item in todoItems" :key="item.id" class="list-row" type="button" @click="openEditTodo(item)"><span class="icon-disc" :class="`type-${item.type}`"><AppIcon :name="todoIconNames[item.type]" :size="15" /></span><span class="list-main"><strong>{{ todoDisplayTitle(item) }}</strong><small>{{ todoTypeMeta[item.type].label }} · {{ item.detail }}</small></span><span class="status" :class="item.tone">{{ item.status }}</span></button></div></section><section class="panel section"><div class="panel-head"><div class="panel-title">帮助与反馈</div></div><div class="list"><button class="list-row setting" @click="navigate('consultation')"><span class="icon-disc"><MessageSquarePlus :size="15" /></span><span class="list-main"><strong>在线问诊</strong><small>联系驻场兽医，咨询牲畜健康问题</small></span><span class="status ok">医生在线</span></button><button class="list-row setting" @click="showMessage('帮助中心即将打开')"><span class="list-main"><strong>使用帮助</strong><small>查看地图、告警和轮换操作说明</small></span><ChevronRight :size="16" class="muted-icon" /></button><button class="list-row setting" @click="showMessage('反馈已记录，感谢你的建议')"><span class="list-main"><strong>问题反馈</strong><small>告诉我们现场使用中的问题</small></span><ChevronRight :size="16" class="muted-icon" /></button><button class="list-row setting" @click="showMessage('当前版本 1.0.0')"><span class="list-main"><strong>关于数牧空间</strong><small>版本与数据协议</small></span><span class="mono muted-value">v1.0.0</span></button></div></section>
+      <section class="panel section"><div class="panel-head"><div><div class="panel-title">待办事项</div><div class="panel-meta">共 {{ todoItems.length }} 项 · 已连接数据库</div></div><button class="link-btn" type="button" @click="openTodoDialog">添加</button></div><div v-if="todoLoading" class="list"><div class="list-row"><span class="list-main"><strong>正在加载待办事项</strong><small>正在从 SQLite 数据库读取数据</small></span></div></div><div v-else-if="todoError" class="list"><div class="list-row"><span class="list-main"><strong>待办事项加载失败</strong><small>{{ todoError }}</small></span></div></div><div v-else-if="todoItems.length === 0" class="list"><div class="list-row"><span class="list-main"><strong>暂无待办事项</strong><small>点击右上角添加，保存后会写入数据库</small></span></div></div><div v-else class="list"><button v-for="item in todoItems" :key="item.id" class="list-row" type="button" @click="openEditTodo(item)"><span class="icon-disc" :class="`type-${item.type}`"><AppIcon :name="todoIconNames[item.type]" :size="15" /></span><span class="list-main"><strong>{{ todoDisplayTitle(item) }}</strong><small>{{ todoTypeMeta[item.type].label }} · {{ item.detail }}</small></span><span class="status" :class="item.tone">{{ item.status }}</span></button></div></section><section class="panel section"><div class="panel-head"><div class="panel-title">帮助与关于</div></div><div class="list"><button class="list-row setting" @click="navigate('consultation')"><span class="icon-disc"><MessageSquarePlus :size="15" /></span><span class="list-main"><strong>AI 问诊</strong><small>AI 辅助分析牲畜健康问题</small></span><span class="status ok">AI 在线</span></button><button class="list-row setting" @click="navigate('help')"><span class="list-main"><strong>使用帮助</strong><small>了解各功能模块与操作方法</small></span><ChevronRight :size="16" class="muted-icon" /></button><button class="list-row setting" @click="showMessage('当前版本 1.0.0')"><span class="list-main"><strong>关于数牧空间</strong><small>版本与数据协议</small></span><span class="mono muted-value">v1.0.0</span></button></div></section>
     </main>
-    <div class="drawer todo-dialog" :class="{ open: todoDialogOpen }" @click.self="closeTodoDialog">
+  </PageChrome>
+  <!-- Keep dialogs outside the slot so uni-app patches their conditional branches reliably. -->
+  <div v-if="todoDialogOpen" class="drawer todo-dialog open" @click.self="closeTodoDialog">
       <div v-if="todoStep === 'type'" class="drawer-card">
         <div class="drawer-head"><h2>添加待办</h2><button class="close" type="button" aria-label="关闭" @click="closeTodoDialog"><X :size="18" /></button></div>
         <p class="todo-dialog-hint">选择事件类型</p>
@@ -302,10 +290,10 @@ function navigate(view: string) { navigateToView(view) }
           </template>
           <label class="todo-field todo-field-full"><span>备注</span><textarea v-model.trim="todoForm.note" rows="3" maxlength="120" :placeholder="notePlaceholder"></textarea></label>
         </div>
-        <div class="drawer-actions todo-form-actions"><button class="btn btn-secondary" type="button" @click="closeTodoDialog">取消</button><button class="btn btn-primary" type="submit" :disabled="todoSaving">{{ todoSaving ? '保存中...' : '保存待办' }}</button></div>
+        <div class="drawer-actions todo-form-actions"><button class="btn btn-secondary" type="button" @click="closeTodoDialog">取消</button><button class="btn btn-primary" type="button" :disabled="todoSaving" @click="submitTodo">{{ todoSaving ? '保存中...' : '保存待办' }}</button></div>
       </form>
     </div>
-    <div class="drawer todo-dialog" :class="{ open: editDialogOpen }" @click.self="closeEditTodo">
+    <div v-if="editDialogOpen" class="drawer todo-dialog open" @click.self="closeEditTodo">
       <form v-if="editingTodo" class="drawer-card" @submit.prevent="submitEditTodo">
         <div class="drawer-head"><h2>编辑待办</h2><button class="close" type="button" aria-label="关闭" @click="closeEditTodo"><X :size="18" /></button></div>
         <div class="todo-selected"><span class="icon-disc" :class="`type-${editingTodo.type}`"><AppIcon :name="todoIconNames[editingTodo.type]" :size="15" /></span><span class="todo-selected-copy"><strong>{{ todoTypeMeta[editingTodo.type].label }}</strong><small>{{ editingTodo.status }} · 点击下方内容修改</small></span></div>
@@ -315,10 +303,10 @@ function navigate(view: string) { navigateToView(view) }
           <label class="todo-field todo-field-full"><span>事项名称</span><input v-model.trim="editForm.title" type="text" maxlength="60" required></label>
           <label class="todo-field todo-field-full"><span>备注</span><textarea v-model.trim="editForm.detail" rows="4" maxlength="240" placeholder="补充事项说明"></textarea></label>
         </div>
-        <div class="drawer-actions todo-form-actions"><button class="btn btn-secondary" type="button" @click="closeEditTodo">取消</button><button class="btn todo-danger" type="button" :disabled="editSaving" @click="requestDeleteTodo">删除待办</button><button class="btn btn-primary" type="submit" :disabled="editSaving">{{ editSaving ? '处理中...' : '确认修改' }}</button></div>
+        <div class="drawer-actions todo-form-actions"><button class="btn btn-secondary" type="button" @click="closeEditTodo">取消</button><button class="btn todo-danger" type="button" :disabled="editSaving" @click="requestDeleteTodo">删除待办</button><button class="btn btn-primary" type="button" :disabled="editSaving" @click="submitEditTodo">{{ editSaving ? '处理中...' : '确认修改' }}</button></div>
       </form>
     </div>
-    <div class="drawer todo-dialog delete-confirm-dialog" :class="{ open: deleteConfirmOpen }" @click.self="cancelDeleteTodo">
+    <div v-if="deleteConfirmOpen" class="drawer todo-dialog delete-confirm-dialog open" @click.self="cancelDeleteTodo">
       <div v-if="editingTodo" class="drawer-card">
         <div class="drawer-head"><h2>确认删除</h2><button class="close" type="button" aria-label="关闭" @click="cancelDeleteTodo"><X :size="18" /></button></div>
         <p class="delete-confirm-copy">删除后无法恢复，确定要删除这条待办吗？</p>
@@ -327,14 +315,9 @@ function navigate(view: string) { navigateToView(view) }
       </div>
     </div>
     <div class="toast" :class="{ show: toast }">{{ toast }}</div>
-  </PageChrome>
 </template>
 
 <style scoped>
-.account-actions { display: flex; gap: 10px; padding: 16px 18px; }
-.account-password { display: grid; gap: 10px; padding: 0 18px 18px; }
-.account-password input { height: 40px; padding: 0 12px; border: 1px solid var(--border-soft); border-radius: 9px; background: #fff; }
-.account-password button { justify-self: start; }
 
 .delete-confirm-dialog {
   z-index: 12;

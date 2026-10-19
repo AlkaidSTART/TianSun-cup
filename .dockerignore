@@ -13,3 +13,7 @@ node_modules
 .env.*
 !.env.example
 .DS_Store
+
+# Local validation and shared-runtime staging artifacts
+.cache
+**/.cache

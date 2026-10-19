@@ -8,7 +8,8 @@
     "dev": "node --experimental-sqlite --disable-warning=ExperimentalWarning --watch server.js",
     "start": "node --experimental-sqlite --disable-warning=ExperimentalWarning server.js",
     "test": "node --experimental-sqlite --disable-warning=ExperimentalWarning --test",
-    "auth:bootstrap": "node --experimental-sqlite --disable-warning=ExperimentalWarning scripts/bootstrap-admin.js"
+    "auth:bootstrap": "node --experimental-sqlite --disable-warning=ExperimentalWarning scripts/bootstrap-admin.js",
+    "auth:set-password": "node --experimental-sqlite --disable-warning=ExperimentalWarning scripts/set-user-password.js"
   },
   "engines": {
     "node": ">=22.5"

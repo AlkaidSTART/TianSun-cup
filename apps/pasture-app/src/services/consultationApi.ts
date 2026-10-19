@@ -1,7 +1,7 @@
 import { request } from './http'
 
 export type ConsultationStatus = 'open' | 'answered' | 'closed'
-export type ConsultationRole = 'doctor' | 'user'
+export type ConsultationRole = 'doctor' | 'user' | 'assistant'
 
 export interface ConsultationMessage {
   id: string
@@ -31,6 +31,7 @@ export interface ConsultationSummary {
 
 export interface ConsultationDetail extends ConsultationSummary {
   messages: ConsultationMessage[]
+  aiError?: boolean
 }
 
 export interface ConsultationDraft {
@@ -53,13 +54,21 @@ export const consultationApi = {
   },
 
   create(draft: ConsultationDraft) {
-    return request<ConsultationDetail>('/consultations', { method: 'POST', data: { ...draft } })
+    return request<ConsultationDetail>('/consultations', { method: 'POST', data: { ...draft }, timeout: 60_000 })
   },
 
   sendMessage(id: string, text: string) {
-    return request<ConsultationMessage>(`/consultations/${encodeURIComponent(id)}/messages`, {
+    return request<ConsultationMessage & { aiError?: boolean }>(`/consultations/${encodeURIComponent(id)}/messages`, {
       method: 'POST',
       data: { text },
+      timeout: 60_000,
+    })
+  },
+
+  retry(id: string) {
+    return request<ConsultationDetail>(`/consultations/${encodeURIComponent(id)}/retry`, {
+      method: 'POST',
+      timeout: 60_000,
     })
   },
 }

@@ -308,7 +308,7 @@ async function mapWithConcurrency(items, limit, worker) {
   return results;
 }
 
-export function createLivestockSpriteSystem({ scene, sampleGround, groundOffset = 2 }) {
+export function createLivestockSpriteSystem({ scene, sampleGround, groundOffset = 2, concurrency = 8, isDisposed = () => false }) {
   const livestock = createLivestockData();
   const positionValidation = validatePositions(livestock);
   const markerTextures = {
@@ -402,7 +402,8 @@ export function createLivestockSpriteSystem({ scene, sampleGround, groundOffset 
 
   async function createSprites() {
     removeSprites();
-    const groundPoints = await mapWithConcurrency(livestock, 8, (animal) => sampleGround(animal.longitude, animal.latitude));
+    const groundPoints = await mapWithConcurrency(livestock, concurrency, (animal) => sampleGround(animal.longitude, animal.latitude));
+    if (isDisposed()) throw new DOMException('Scene disposed', 'AbortError');
     const failedAnimals = livestock.filter((_, index) => !groundPoints[index]).map((animal) => animal.id);
     if (failedAnimals.length) throw new Error(`[livestock-sprites] ${failedAnimals.length} 个光点地形采样失败：${failedAnimals.join(', ')}`);
 

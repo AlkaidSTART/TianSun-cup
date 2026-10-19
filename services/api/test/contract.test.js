@@ -58,14 +58,14 @@ test('contract: implemented endpoints keep their documented shape', async () => 
     auth.bootstrapInitialAdmin({ username: 'admin', displayName: '管理员', password: 'StrongAdminPass123!' })
 
     const badLogin = await call('/api/auth/login', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Client-Platform': 'mp-weixin' },
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Client-Platform': 'app-plus' },
       body: JSON.stringify({ username: 'admin', password: 'wrong-password-x' }),
     })
     assert.deepEqual([badLogin.status, badLogin.body.message], [401, '账号或密码错误'])
 
     async function login(username, password) {
       const response = await call('/api/auth/login', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Client-Platform': 'mp-weixin' },
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Client-Platform': 'app-plus' },
         body: JSON.stringify({ username, password }),
       })
       assert.equal(response.body.code, 0, JSON.stringify(response.body))
