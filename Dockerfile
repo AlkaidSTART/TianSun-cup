@@ -2,8 +2,10 @@ FROM node:22-bookworm-slim AS build
 WORKDIR /repo
 ARG TIANDITU_TOKEN
 ENV TIANDITU_TOKEN=${TIANDITU_TOKEN}
+RUN npm install -g pnpm@11.17.0
 COPY . .
 RUN npm ci
+RUN pnpm --dir pasture-3d install --frozen-lockfile
 RUN npm run build
 
 FROM node:22-bookworm-slim AS runtime
@@ -14,13 +16,12 @@ ENV NODE_ENV=production \
     LIVESTOCK_SEED_FILE=/app/seed/livestock.seed.json
 WORKDIR /app
 COPY package.json package-lock.json ./
-COPY apps/pasture-3d/package.json apps/pasture-3d/package.json
 COPY apps/pasture-app/package.json apps/pasture-app/package.json
 COPY apps/pasture-admin/package.json apps/pasture-admin/package.json
 COPY services/api/package.json services/api/package.json
 RUN npm ci --omit=dev
 COPY --from=build /repo/services/api ./services/api
-COPY --from=build /repo/apps/pasture-3d/dist ./apps/pasture-3d/dist
+COPY --from=build /repo/pasture-3d/dist ./pasture-3d/dist
 COPY --from=build /repo/apps/pasture-app/dist ./apps/pasture-app/dist
 COPY --from=build /repo/apps/pasture-admin ./apps/pasture-admin
 RUN mkdir -p /app/services/api/data /app/seed \

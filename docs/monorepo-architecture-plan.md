@@ -14,7 +14,7 @@
 
 | 组成 | 当前路径 | 职责 |
 | --- | --- | --- |
-| Web 大屏 | `apps/pasture-3d/` | Three.js / Vite 大屏工程，包含主页面和 legacy 页面。 |
+| Web 大屏 | `pasture-3d/` | Three.js / Vite 大屏工程（独立 pnpm 项目），包含主页面和 legacy 页面。 |
 | H5 端 | `apps/pasture-app/` | uni-app（Vue 3 + Vite）工程；可构建 H5 与微信小程序，开发环境 `/api` 代理至 Express。 |
 | 管理后台 | `apps/pasture-admin/` | Vite 构建的牲畜档案管理后台，开发环境 `/api` 代理至 Express。 |
 | API 服务 | `services/api/` | Express 路由、SQLite store/db 与测试，仅托管前端构建产物。 |
@@ -27,7 +27,7 @@
 ```text
 apps/pasture-app/      # H5 / uni-app + Vue/Vite
 apps/pasture-admin/    # 管理后台 / Vite
-apps/pasture-3d/       # Web 大屏 / Three.js/Vite
+pasture-3d/            # Web 大屏 / Three.js/Vite（独立 pnpm 项目）
 services/api/          # Express + SQLite
   src/                 # Express app、API routers、store、db
   test/                # store 与 HTTP/API 测试
@@ -38,10 +38,11 @@ Dockerfile             # 多阶段前端构建及 Express runtime
 compose.yaml           # 单服务部署、SQLite 持久化卷
 start.sh               # Compose 启动与命令透传
 package.json           # npm workspaces 和根级脚本
-package-lock.json      # 唯一 npm 锁文件
+package-lock.json      # npm workspaces 锁文件
+pasture-3d/pnpm-lock.yaml  # 大屏独立 pnpm 锁文件
 ```
 
-根工作区包括 `apps/*` 与 `services/*`。依赖统一由根 `package-lock.json` 锁定。
+根工作区包括 `apps/*` 与 `services/*`。大屏 `pasture-3d/` 是带独立 `pnpm-lock.yaml` 的 pnpm 项目，不属于 npm workspaces：在其目录内 `pnpm install && pnpm dev` 即可单独启动，根脚本 `npm run dev:screen`（别名 `dev:3d`）只是 `pnpm --dir pasture-3d dev` 的便捷封装；其余工作区依赖仍由根 `package-lock.json` 锁定。
 
 ## 4. HTTP 路由布局
 
@@ -67,8 +68,8 @@ Express 是唯一 HTTP 服务进程，同时托管 API 与三个前端构建产�
 | `npm run dev:api` | Express 开发服务器（watch） |
 | `npm run dev:h5` | H5 开发服务器（`dev:app` 为兼容别名） |
 | `npm run dev:admin` | 管理后台 Vite 开发服务器 |
-| `npm run dev:screen` | Web 大屏 Vite 开发服务器（`dev:3d` 为兼容别名） |
-| `npm run build` | 构建所有有 build 脚本的 workspace |
+| `npm run dev:screen` | Web 大屏 Vite 开发服务器（`dev:3d` 为兼容别名，委托 `pnpm --dir pasture-3d dev`） |
+| `npm run build` | 构建所有有 build 脚本的 workspace，并构建 `pasture-3d` |
 | `npm test` | 执行 API store 与 HTTP 集成测试 |
 | `npm start` | 启动 API |
 | `./start.sh` | 构建并后台启动 Compose 服务 |

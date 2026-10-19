@@ -3,7 +3,7 @@ import { defineConfig, loadEnv } from 'vite'
 
 // 资源基础路径需与实际访问地址一致，否则 index.html 会引用不存在的
 // /3d/assets/*.css、/3d/assets/*.js，导致页面无样式、脚本 404。
-// 可用 shell 环境变量或 apps/pasture-3d/.env(.local) 配置：
+// 可用 shell 环境变量或 pasture-3d/.env(.local) 配置：
 // - 默认 '/3d/'：由 services/api 的 Express 在 /3d/ 下托管（Docker 部署）
 // - 直接静态部署到网站根目录：WEB_BASE_PATH=/
 // - 部署到其他子路径：例如 WEB_BASE_PATH=/webgis/

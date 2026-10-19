@@ -17,7 +17,7 @@ const serviceDir = path.resolve(currentDir, '..')
 const adminSourceDir = path.resolve(serviceDir, '../../apps/pasture-admin')
 const adminDistDir = path.join(adminSourceDir, 'dist')
 const adminDir = fs.existsSync(path.join(adminDistDir, 'index.html')) ? adminDistDir : adminSourceDir
-const threeDir = path.resolve(serviceDir, '../../apps/pasture-3d/dist')
+const threeDir = path.resolve(serviceDir, '../../pasture-3d/dist')
 const appDistDir = path.resolve(serviceDir, '../../apps/pasture-app/dist')
 const appDir = fs.existsSync(path.join(appDistDir, 'build', 'h5', 'index.html'))
   ? path.join(appDistDir, 'build', 'h5')
@@ -56,8 +56,9 @@ app.use('/api', alertRoutes)
 app.use('/api', telemetryRoutes)
 app.use('/api', consultationRoutes)
 
-// All browser clients live under apps/: admin, 3D screen, and H5.
-// The admin app keeps / as a compatibility entry while /admin/ stays canonical.
+// The admin and H5 clients live under apps/, the 3D screen is the standalone
+// pasture-3d project. The admin app keeps / as a compatibility entry while
+// /admin/ stays canonical.
 app.use('/admin', express.static(adminDir, { index: 'index.html', fallthrough: true }))
 app.use('/3d', express.static(threeDir, { index: 'index.html', fallthrough: true }))
 app.use('/app', express.static(appDir, { index: 'index.html', fallthrough: true }))

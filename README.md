@@ -2,11 +2,11 @@
 
 > 仓储代号 `TianSun-cup`，产品名统一为「数牧空间」。
 
-本仓库采用 npm workspaces 管理前端和统一 API 服务：
+本仓库采用 npm workspaces 管理前端和统一 API 服务，Web 大屏是其中独立的 pnpm 项目：
 
 - `apps/pasture-app`：H5 端，uni-app（Vue 3 + Vite）跨端应用，可构建 H5 与微信小程序。
 - `apps/pasture-admin`：后台管理端，Vite 构建的牲畜档案管理界面。
-- `apps/pasture-3d`：Web 大屏端，Three.js / Vite 三维放牧监测，包含主页面和 legacy 页面。
+- `pasture-3d`：Web 大屏端，独立的 pnpm 项目（自带 `pnpm-lock.yaml`），Three.js / Vite 三维放牧监测，包含主页面和 legacy 页面；在 `pasture-3d/` 目录内 `pnpm dev` 即可单独启动。
 - `services/api`：Express API 与 SQLite 数据层，仅负责接口和静态资源托管，不再保存前端源码。
 - `docs/monorepo-architecture-plan.md`：目标架构和本次落地说明。
 - `docs/backend-api.md`：现有后端 API 的独立契约文档。
@@ -16,7 +16,8 @@
 ## 环境要求
 
 - Node.js `>=22.5`（使用内置 `node:sqlite`）
-- npm
+- npm（仓库根与 `apps/`、`services/` 工作区）
+- pnpm（`pasture-3d/` 独立大屏项目）
 - 容器启动需要 Docker Engine 和 Docker Compose 插件
 
 ## 安装、构建与测试
@@ -29,7 +30,13 @@ npm run build
 npm test
 ```
 
-`npm run build` 会构建 H5 端、后台管理端和 Web 大屏端；API 使用 Node.js 直接运行，不需要单独编译。
+Web 大屏现在是独立项目，首次使用先安装其依赖：
+
+```bash
+cd pasture-3d && pnpm install && cd ..
+```
+
+`npm run build` 会构建 H5 端、后台管理端和 Web 大屏端（大屏通过根脚本委托 `pnpm --dir pasture-3d build` 完成）；API 使用 Node.js 直接运行，不需要单独编译。
 
 微信小程序构建：
 
@@ -57,6 +64,16 @@ npm run dev:screen # Web 大屏（Three.js），默认 http://localhost:5175/3d/
 
 `dev:app` 与 `dev:3d` 仍保留为兼容别名，分别等价于 `dev:h5` 和 `dev:screen`。三个开发服务器端口固定，可同时运行。
 
+Web 大屏是独立 pnpm 项目，也可以完全脱离根目录单独启动：
+
+```bash
+cd pasture-3d
+pnpm install   # 首次
+pnpm dev       # http://127.0.0.1:5175/3d/
+```
+
+根目录的 `npm run dev:screen`（`dev:3d`）只是对 `pnpm --dir pasture-3d dev` 的便捷封装，两者启动的是同一个项目。
+
 微信小程序开发：
 
 ```bash
@@ -65,7 +82,7 @@ npm run dev:mp-weixin --workspace @tiansun/pasture-app
 
 随后使用微信开发者工具导入 `apps/pasture-app/dist/dev/mp-weixin`。
 
-H5 和后台开发服务器都会将 `/api` 代理到 `http://127.0.0.1:3000`，可通过 `API_PROXY_TARGET` 覆盖。Web 大屏地图 token 可通过 `apps/pasture-3d/.env` 中的 `TIANDITU_TOKEN` 配置；未配置时不影响构建，但地图服务可能无法按预期加载。API 默认监听 `0.0.0.0:3000`，支持 `HOST`、`PORT`、`LIVESTOCK_DB_FILE` 和 `LIVESTOCK_SEED_FILE` 环境变量。
+H5 和后台开发服务器都会将 `/api` 代理到 `http://127.0.0.1:3000`，可通过 `API_PROXY_TARGET` 覆盖。Web 大屏地图 token 可通过 `pasture-3d/.env` 中的 `TIANDITU_TOKEN` 配置；未配置时不影响构建，但地图服务可能无法按预期加载。API 默认监听 `0.0.0.0:3000`，支持 `HOST`、`PORT`、`LIVESTOCK_DB_FILE` 和 `LIVESTOCK_SEED_FILE` 环境变量。
 
 “牲畜”页面可新增牲畜档案，“我的”页面可新增待办事项；数据会通过 API 写入 SQLite。主页“今日代办”会自动筛选并展示当天事项。
 
@@ -103,17 +120,17 @@ powershell -ExecutionPolicy Bypass -File .\start.ps1
 
 ### 部署路径（`WEB_BASE_PATH`）
 
-Web 大屏构建时会把静态资源的绝对路径写入 `index.html`。`apps/pasture-3d` 默认使用 `/3d/`，与上面的 Express 部署一致。如果把 `apps/pasture-3d/dist` 单独上传到静态站点，需要让构建路径与访问地址一致，否则页面会因 CSS/JS 404 而**没有样式**：
+Web 大屏构建时会把静态资源的绝对路径写入 `index.html`。`pasture-3d` 默认使用 `/3d/`，与上面的 Express 部署一致。如果把 `pasture-3d/dist` 单独上传到静态站点，需要让构建路径与访问地址一致，否则页面会因 CSS/JS 404 而**没有样式**：
 
 ```bash
 # 部署到网站根目录（访问 /）
-WEB_BASE_PATH=/ npm run build --workspace @tiansun/pasture-3d
+WEB_BASE_PATH=/ pnpm --dir pasture-3d build
 
 # 部署到子路径（例如访问 /webgis/）
-WEB_BASE_PATH=/webgis/ npm run build --workspace @tiansun/pasture-3d
+WEB_BASE_PATH=/webgis/ pnpm --dir pasture-3d build
 
 # 默认：由 Express 托管在 /3d/
-npm run build --workspace @tiansun/pasture-3d
+pnpm --dir pasture-3d build
 ```
 
 Docker 构建默认仍为 `/3d/`，无需额外配置。

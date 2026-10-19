@@ -8,15 +8,16 @@
     "services/*"
   ],
   "scripts": {
-    "dev:3d": "npm run dev --workspace @tiansun/pasture-3d",
+    "dev:3d": "pnpm --dir pasture-3d dev",
     "dev:app": "npm run dev --workspace @tiansun/pasture-app",
     "dev:api": "npm run dev --workspace @tiansun/api",
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present && pnpm --dir pasture-3d build",
+    "build:3d": "pnpm --dir pasture-3d build",
     "test": "npm test --workspace @tiansun/api",
     "start": "npm start --workspace @tiansun/api",
     "dev:h5": "npm run dev --workspace @tiansun/pasture-app",
     "dev:admin": "npm run dev --workspace @tiansun/pasture-admin",
-    "dev:screen": "npm run dev --workspace @tiansun/pasture-3d"
+    "dev:screen": "pnpm --dir pasture-3d dev"
   },
   "engines": {
     "node": ">=22.5"
