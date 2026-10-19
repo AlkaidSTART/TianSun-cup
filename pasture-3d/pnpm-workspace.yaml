@@ -1,15 +1,9 @@
-# 本文件将该目录标记为独立的 pnpm 工作区根。
-#
-# 这里没有子包（packages 为空），作用有两个：
-# 1. pnpm 向上查找工作区根时会在本目录停止，不会继承父目录（例如用户主目录）
-#    的门罗式 pnpm-workspace.yaml 配置，保证 pnpm install / pnpm dev 行为一致；
-# 2. pnpm 10+ 允许把项目级配置放在此文件中，后续如有 onlyBuiltDependencies
-#    等设置可写在这里。
+# 本文件将该目录标记为独立的 pnpm 工作区根：
+# pnpm 向上查找工作区根时会在本目录停止，不会继承父目录（例如用户主目录）
+# 的 pnpm-workspace.yaml 配置，保证 pnpm install / pnpm dev 行为一致。
+# 这里没有子包（packages 为空）；项目级配置（如 allowBuilds）也写在此处。
 packages: []
 
-# esbuild（Vite 依赖）需要执行安装脚本校验平台二进制，pnpm 10+ 默认拦截，
-# 这里显式放行。
-onlyBuiltDependencies:
-  - esbuild
+# esbuild（Vite 依赖）需要执行安装脚本校验平台二进制，pnpm 默认拦截，这里显式放行。
 allowBuilds:
-  esbuild: set this to true or false
+  esbuild: true

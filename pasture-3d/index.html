@@ -124,46 +124,79 @@
 
       <div id="loading-panel" class="loading-panel">
         <div class="lp-grid" aria-hidden="true"></div>
-        <div class="lp-scan" aria-hidden="true"></div>
         <div class="lp-stage">
           <div class="lp-emblem" aria-hidden="true">
-            <span class="lp-halo"></span>
-            <span class="lp-ring lp-ring--outer"></span>
-            <span class="lp-ring lp-ring--mid"></span>
-            <svg class="lp-glyph" viewBox="3.4 2.6 26.6 25.8" focusable="false" aria-hidden="true">
-              <defs>
-                <linearGradient id="lpGlyphGrad" x1="6" y1="7" x2="25" y2="27" gradientUnits="userSpaceOnUse">
-                  <stop offset="0" stop-color="#ecfff8" />
-                  <stop offset=".45" stop-color="#7bf0c4" />
-                  <stop offset="1" stop-color="#2cb587" />
-                </linearGradient>
-                <linearGradient id="lpGlyphSoft" x1="7" y1="13" x2="23" y2="25" gradientUnits="userSpaceOnUse">
-                  <stop offset="0" stop-color="#d6fff0" />
-                  <stop offset="1" stop-color="#57dfae" />
-                </linearGradient>
-              </defs>
-              <g fill="url(#lpGlyphGrad)">
-                <circle cx="13.6" cy="19.4" r="3.4" />
-                <circle cx="16.3" cy="18.3" r="4.5" />
-                <circle cx="19.9" cy="16.7" r="4.2" />
-                <circle cx="21.5" cy="19.7" r="3.5" />
-                <circle cx="17.5" cy="20.7" r="3.8" />
-              </g>
-              <ellipse cx="12.9" cy="13.4" rx="2.15" ry="1" transform="rotate(-27 12.9 13.4)" fill="url(#lpGlyphSoft)" />
-              <ellipse cx="10.5" cy="16.4" rx="3.25" ry="2.85" transform="rotate(-12 10.5 16.4)" fill="url(#lpGlyphSoft)" />
-              <ellipse cx="7.45" cy="17.45" rx="1.7" ry="1.32" transform="rotate(-16 7.45 17.45)" fill="url(#lpGlyphSoft)" />
-              <circle cx="9.35" cy="15.15" r=".8" fill="#04261b" />
-              <g fill="none" stroke="url(#lpGlyphGrad)" stroke-width="1.75" stroke-linecap="round">
-                <path d="M15 23.7v2.9" />
-                <path d="M19.8 23.5v3.1" />
-              </g>
-              <circle cx="22.5" cy="11.4" r="1.1" fill="url(#lpGlyphGrad)" />
-              <g fill="none" stroke="url(#lpGlyphGrad)" stroke-width="1.55" stroke-linecap="round" opacity=".9">
-                <path d="M22.06 7.22A4.2 4.2 0 0 1 26.39 9.83" />
-                <path d="M21.77 4.44A7 7 0 0 1 28.99 8.78" opacity=".62" />
-              </g>
-            </svg>
-            <span class="lp-ring lp-ring--inner"></span>
+            <span class="lp-orbit"></span>
+            <div class="lp-emblem-card">
+              <svg class="lp-glyph" viewBox="0 0 84 84" width="86" height="86" focusable="false" aria-hidden="true">
+                <defs>
+                  <linearGradient id="s-wool" x1="20" y1="16" x2="68" y2="64" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="#ffffff" />
+                    <stop offset="50%" stop-color="#f1f5f9" />
+                    <stop offset="100%" stop-color="#d1fae5" />
+                  </linearGradient>
+                  <linearGradient id="s-face" x1="22" y1="28" x2="38" y2="52" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="#f8fafc" />
+                    <stop offset="100%" stop-color="#e2e8f0" />
+                  </linearGradient>
+                  <linearGradient id="s-tech" x1="50" y1="14" x2="72" y2="34" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="#38bdf8" />
+                    <stop offset="100%" stop-color="#10b981" />
+                  </linearGradient>
+                  <linearGradient id="s-horn" x1="20" y1="18" x2="30" y2="30" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="#fde68a" />
+                    <stop offset="100%" stop-color="#f59e0b" />
+                  </linearGradient>
+                  <linearGradient id="s-ear" x1="14" y1="32" x2="24" y2="44" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="#fecdd3" />
+                    <stop offset="100%" stop-color="#cbd5e1" />
+                  </linearGradient>
+                </defs>
+
+                <!-- IoT 卫星与射频信号波束 -->
+                <path d="M57 18C63 22 66 28 66 34" stroke="url(#s-tech)" stroke-width="2.4" stroke-linecap="round" opacity="0.9" />
+                <path d="M63 12C72 17 76 25 76 34" stroke="url(#s-tech)" stroke-width="2.4" stroke-linecap="round" opacity="0.45" />
+                <circle cx="51" cy="25" r="2.5" fill="#38bdf8" />
+
+                <!-- 稳健四蹄 -->
+                <rect x="30" y="55" width="5.5" height="12" rx="2.5" fill="#cbd5e1" />
+                <rect x="45" y="55" width="5.5" height="12" rx="2.5" fill="#cbd5e1" />
+                <path d="M30 63.5H35.5V64.5C35.5 66 34.2 67 32.7 67C31.2 67 30 66 30 64.5V63.5Z" fill="#64748b" />
+                <path d="M45 63.5H50.5V64.5C50.5 66 49.2 67 47.7 67C46.2 67 45 66 45 64.5V63.5Z" fill="#64748b" />
+
+                <!-- 蓬松尾巴 -->
+                <circle cx="61" cy="44" r="5" fill="url(#s-wool)" />
+
+                <!-- 羊绒云朵轮廓 -->
+                <path d="M31 56C23 56 17 50.5 17 43C17 37.5 20.2 33 25 31.2C24.2 27 26 22.8 29.8 20.5C34 18 39.5 18.5 43.5 21.5C46.5 18.5 51.2 17.8 55.2 19.5C60 21.8 63 26.5 63 31.8C67.5 33.5 70.5 38 70.5 43C70.5 50.2 65 56 58 56C56 56 54.2 55.4 52.8 54.5C50.8 55.5 48.5 56 46 56H31Z" fill="url(#s-wool)" stroke="rgba(255,255,255,0.7)" stroke-width="1.4" />
+
+                <!-- 灵动金角 -->
+                <path d="M28 24C26 21 21 21 19 24C17.5 26.5 19 30 22 31C24 31.5 26 30 26 28C26 26.5 24.5 25.5 23 26" stroke="url(#s-horn)" stroke-width="2.5" stroke-linecap="round" />
+
+                <!-- 垂耳 -->
+                <path d="M22 35C17.5 35 15 40 16 44C17.2 47 21 47.5 23.5 44L25 38C24.5 36.5 23.2 35 22 35Z" fill="url(#s-ear)" />
+
+                <!-- 头部 -->
+                <path d="M25 31C18.5 33.5 17.5 42 21 46.5C24 50 31 51 34.5 47.5C38 44 38.5 37 35 32.5C32 29.5 28 29.8 25 31Z" fill="url(#s-face)" />
+
+                <!-- 额头毛卷 -->
+                <circle cx="30" cy="31" r="3.8" fill="#ffffff" />
+                <circle cx="34.5" cy="32.5" r="3.2" fill="#ffffff" />
+
+                <!-- 萌系大眼高光 -->
+                <circle cx="26.5" cy="39" r="2.4" fill="#0f172a" />
+                <circle cx="27.4" cy="38" r="0.9" fill="#ffffff" />
+
+                <!-- 微笑与粉嫩腮红 -->
+                <path d="M23 44C24.5 45.4 27 45.4 28.5 44" stroke="#64748b" stroke-width="1.3" stroke-linecap="round" />
+                <ellipse cx="30.5" cy="43" rx="2.5" ry="1.4" fill="#f43f5e" opacity="0.4" />
+
+                <!-- 智慧项圈与信标铭牌 -->
+                <path d="M34 47.5C35.5 49 39 49.8 41.5 49" stroke="url(#s-tech)" stroke-width="2.6" stroke-linecap="round" />
+                <circle cx="39.5" cy="52" r="2.8" fill="#10b981" />
+                <circle cx="39.5" cy="52" r="1.2" fill="#f0fdf4" />
+              </svg>
+            </div>
           </div>
           <div class="lp-brand">
             <h1 class="lp-name">数牧空间</h1>
@@ -176,7 +209,6 @@
           <span id="loading-message">准备卫星影像与地形高程...</span>
         </div>
         <div class="lp-progress" aria-hidden="true"><span class="lp-bar"></span></div>
-        <div class="lp-particles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
       </div>
 
       <div id="prohibited-modal" class="prohibited-modal" hidden>
