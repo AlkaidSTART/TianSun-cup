@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="数牧空间 · 阿坝三维放牧监测平台" />
+    <title>数牧空间 · 三维监测平台</title>
+  </head>
+  <body>
+    <main id="app-shell">
+      <div id="scene-container" aria-label="阿坝放牧区三维地图"></div>
+
+      <header class="topbar">
+        <div class="topbar-glow" aria-hidden="true"></div>
+        <div class="topbar-edge topbar-edge-left" aria-hidden="true"></div>
+        <div class="topbar-edge topbar-edge-right" aria-hidden="true"></div>
+
+        <div class="topbar-left">
+          <div class="brand">
+            <span class="brand-mark" aria-hidden="true">
+              <img class="brand-mark-image" src="/logo-mark.png" alt="" width="40" height="40" />
+            </span>
+            <div class="brand-text">
+              <h1>数牧空间</h1>
+              <p><i class="brand-dot" aria-hidden="true"></i>阿坝草地监测中心</p>
+            </div>
+          </div>
+
+          <div id="header-sim" class="topbar-sim" data-phase="放牧" aria-label="放牧时间">
+            <div class="sim-stack">
+              <span class="sim-heading">放牧时间<i id="header-sim-day" class="sim-day">第 1 天</i></span>
+              <span class="sim-row">
+                <strong id="header-sim-time" class="sim-time">10:00</strong>
+                <i id="header-sim-phase" class="sim-phase">放牧</i>
+              </span>
+              <span class="sim-track" aria-hidden="true"><i id="header-sim-progress" class="sim-track-fill"></i></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="topbar-title" aria-hidden="true">
+          <span class="title-line title-line-left"></span>
+          <div class="title-stack">
+            <strong>数牧空间 · 三维监测平台</strong>
+            <em>SHUMU SPACE · 3D MONITORING</em>
+          </div>
+          <span class="title-line title-line-right"></span>
+        </div>
+
+        <div class="filters" aria-label="牲畜筛选">
+          <label class="filter-field">状态<select id="status-filter"><option value="all">全部状态</option><option value="normal">正常</option><option value="attention">需关注</option><option value="abnormal">异常</option><option value="offline">掉线</option></select></label>
+          <label class="filter-field">牧户<select id="owner-filter"><option value="all">全部牧户</option><option value="owner-a">扎西家</option><option value="owner-b">卓玛家</option><option value="owner-c">多吉家</option><option value="owner-d">央金家</option></select></label>
+          <span id="visible-count" class="count-badge">0 / 60</span>
+          <span id="offline-alert" class="offline-alert">0 头牲畜设备掉线</span>
+          <div class="topbar-clock">
+            <span id="clock-time" class="clock-time">--:--:--</span>
+            <span id="clock-date" class="clock-date">加载中</span>
+          </div>
+        </div>
+      </header>
+
+      <aside id="legend-panel" class="legend-panel" aria-label="实时态势面板">
+        <header class="legend-head">
+          <h2 class="legend-title">实时态势</h2>
+          <span class="legend-vertical" aria-hidden="true">实时态势</span>
+          <button id="legend-toggle" class="legend-toggle" type="button" aria-expanded="true" aria-controls="legend-body" aria-label="收起实时态势面板" title="收起">
+            <span class="legend-toggle-icon" aria-hidden="true">‹</span>
+          </button>
+        </header>
+        <div id="legend-body" class="legend-body">
+          <div class="legend-row"><i class="dot normal"></i><span>正常</span><strong id="normal-count">48</strong></div>
+          <div class="legend-row"><i class="dot attention"></i><span>需关注</span><strong id="attention-count">9</strong></div>
+          <div class="legend-row"><i class="dot abnormal"></i><span>异常</span><strong id="abnormal-count">3</strong></div>
+          <div class="legend-row"><i class="dot offline"></i><span>掉线</span><strong id="offline-count">0</strong></div>
+          <hr />
+          <div class="area-key"><i class="area-color excellent"></i>优良</div>
+          <div class="area-key"><i class="area-color average"></i>一般</div>
+          <div class="area-key"><i class="area-color poor"></i>较差</div>
+          <div class="area-key"><i class="area-color prohibited"></i>禁牧</div>
+          <div class="area-key site-key"><i class="site-key-mark"></i>牧民定居点</div>
+          <div class="area-key site-key"><i class="rest-key-mark"></i>夜间休息区</div>
+          <hr />
+          <div class="simulation-panel" aria-label="放牧时间模拟">
+            <div class="simulation-heading">
+              <span>放牧时间</span>
+              <span id="simulation-day-label" class="simulation-day">第 1 天</span>
+              <strong id="simulation-time-label">10:00 · 放牧</strong>
+            </div>
+            <input id="simulation-time" type="range" min="0" max="72" step="0.05" value="10" aria-label="模拟时间" />
+            <div class="simulation-controls">
+              <button id="simulation-toggle" type="button">暂停</button>
+              <label>倍率<select id="simulation-speed"><option value="0.1">0.1×</option><option value="0.2">0.2×</option><option value="0.5" selected>0.5×</option><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <aside id="message-feed" class="message-feed" aria-label="消息提醒">
+        <header class="message-feed-header">
+          <span class="message-feed-title">消息提醒</span>
+          <span id="message-count" class="message-count">0</span>
+          <button id="message-clear" class="message-clear" type="button">清空</button>
+        </header>
+        <ul id="message-list" class="message-list" aria-live="polite" aria-relevant="additions"></ul>
+      </aside>
+
+      <aside id="detail-panel" class="detail-panel" aria-live="polite" hidden>
+        <button id="close-detail" class="icon-button" type="button" title="关闭" aria-label="关闭">×</button>
+        <section id="model-preview" class="model-preview" aria-label="动物模型预览">
+          <div class="model-placeholder">
+            <span class="model-placeholder-icon">◇</span>
+            <span>模型加载中</span>
+            <small>后续接入牲畜 3D 模型</small>
+          </div>
+        </section>
+        <section class="detail-scroll">
+          <p id="detail-kicker" class="panel-kicker"></p>
+          <h2 id="detail-title"></h2>
+          <dl id="detail-content"></dl>
+        </section>
+      </aside>
+
+      <div id="scene-tooltip" class="scene-tooltip" role="status" hidden></div>
+
+      <div id="loading-panel" class="loading-panel">
+        <div class="lp-aurora lp-aurora-1" aria-hidden="true"></div>
+        <div class="lp-aurora lp-aurora-2" aria-hidden="true"></div>
+        <div class="lp-grid" aria-hidden="true"></div>
+        <div class="lp-radar-sweep" aria-hidden="true"></div>
+        <div class="lp-particles" aria-hidden="true">
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+        </div>
+
+        <!-- 四角 HUD 科技瞄准框 -->
+        <div class="lp-hud-corners" aria-hidden="true">
+          <span class="lp-corner lp-corner--tl"></span>
+          <span class="lp-corner lp-corner--tr"></span>
+          <span class="lp-corner lp-corner--bl"></span>
+          <span class="lp-corner lp-corner--br"></span>
+        </div>
+        <!-- 顶部 HUD 遥测标识 -->
+        <div class="lp-hud-header" aria-hidden="true">
+          <div class="lp-hud-chip"><span class="lp-hud-pulse"></span> 3D DIGITAL TWIN SYSTEM</div>
+          <div class="lp-hud-coords">102.000°E · 33.000°N · ALT 3,450M</div>
+        </div>
+
+        <div class="lp-stage">
+          <div class="lp-emblem" aria-hidden="true">
+            <div class="lp-glow-aura"></div>
+            <span class="lp-orbit lp-orbit-outer"></span>
+            <span class="lp-orbit lp-orbit-inner"><span class="lp-orbit-satellite"></span></span>
+            <div class="lp-emblem-card">
+              <div class="lp-card-sheen"></div>
+              <svg class="lp-glyph" viewBox="0 0 84 84" width="86" height="86" focusable="false" aria-hidden="true">
+                <defs>
+                  <linearGradient id="s-wool" x1="20" y1="16" x2="68" y2="64" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="#ffffff" />
+                    <stop offset="50%" stop-color="#f1f5f9" />
+                    <stop offset="100%" stop-color="#d1fae5" />
+                  </linearGradient>
+                  <linearGradient id="s-face" x1="22" y1="28" x2="38" y2="52" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="#f8fafc" />
+                    <stop offset="100%" stop-color="#e2e8f0" />
+                  </linearGradient>
+                  <linearGradient id="s-tech" x1="50" y1="14" x2="72" y2="34" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="#38bdf8" />
+                    <stop offset="100%" stop-color="#10b981" />
+                  </linearGradient>
+                  <linearGradient id="s-horn" x1="20" y1="18" x2="30" y2="30" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="#fde68a" />
+                    <stop offset="100%" stop-color="#f59e0b" />
+                  </linearGradient>
+                  <linearGradient id="s-ear" x1="14" y1="32" x2="24" y2="44" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="#fecdd3" />
+                    <stop offset="100%" stop-color="#cbd5e1" />
+                  </linearGradient>
+                </defs>
+
+                <!-- IoT 卫星与射频信号波束 -->
+                <path class="lp-signal-wave lp-wave-1" d="M57 18C63 22 66 28 66 34" stroke="url(#s-tech)" stroke-width="2.4" stroke-linecap="round" opacity="0.9" />
+                <path class="lp-signal-wave lp-wave-2" d="M63 12C72 17 76 25 76 34" stroke="url(#s-tech)" stroke-width="2.4" stroke-linecap="round" opacity="0.45" />
+                <circle class="lp-satellite-beacon" cx="51" cy="25" r="2.5" fill="#38bdf8" />
+
+                <!-- 稳健四蹄 -->
+                <rect x="30" y="55" width="5.5" height="12" rx="2.5" fill="#cbd5e1" />
+                <rect x="45" y="55" width="5.5" height="12" rx="2.5" fill="#cbd5e1" />
+                <path d="M30 63.5H35.5V64.5C35.5 66 34.2 67 32.7 67C31.2 67 30 66 30 64.5V63.5Z" fill="#64748b" />
+                <path d="M45 63.5H50.5V64.5C50.5 66 49.2 67 47.7 67C46.2 67 45 66 45 64.5V63.5Z" fill="#64748b" />
+
+                <!-- 蓬松尾巴 -->
+                <circle cx="61" cy="44" r="5" fill="url(#s-wool)" />
+
+                <!-- 羊绒云朵轮廓 -->
+                <path d="M31 56C23 56 17 50.5 17 43C17 37.5 20.2 33 25 31.2C24.2 27 26 22.8 29.8 20.5C34 18 39.5 18.5 43.5 21.5C46.5 18.5 51.2 17.8 55.2 19.5C60 21.8 63 26.5 63 31.8C67.5 33.5 70.5 38 70.5 43C70.5 50.2 65 56 58 56C56 56 54.2 55.4 52.8 54.5C50.8 55.5 48.5 56 46 56H31Z" fill="url(#s-wool)" stroke="rgba(255,255,255,0.7)" stroke-width="1.4" />
+
+                <!-- 灵动金角 -->
+                <path class="lp-horn" d="M28 24C26 21 21 21 19 24C17.5 26.5 19 30 22 31C24 31.5 26 30 26 28C26 26.5 24.5 25.5 23 26" stroke="url(#s-horn)" stroke-width="2.5" stroke-linecap="round" />
+
+                <!-- 垂耳 -->
+                <path class="lp-ear" d="M22 35C17.5 35 15 40 16 44C17.2 47 21 47.5 23.5 44L25 38C24.5 36.5 23.2 35 22 35Z" fill="url(#s-ear)" />
+
+                <!-- 头部 -->
+                <path d="M25 31C18.5 33.5 17.5 42 21 46.5C24 50 31 51 34.5 47.5C38 44 38.5 37 35 32.5C32 29.5 28 29.8 25 31Z" fill="url(#s-face)" />
+
+                <!-- 额头毛卷 -->
+                <circle cx="30" cy="31" r="3.8" fill="#ffffff" />
+                <circle cx="34.5" cy="32.5" r="3.2" fill="#ffffff" />
+
+                <!-- 萌系大眼高光 -->
+                <circle cx="26.5" cy="39" r="2.4" fill="#0f172a" />
+                <circle cx="27.4" cy="38" r="0.9" fill="#ffffff" />
+
+                <!-- 微笑与粉嫩腮红 -->
+                <path d="M23 44C24.5 45.4 27 45.4 28.5 44" stroke="#64748b" stroke-width="1.3" stroke-linecap="round" />
+                <ellipse cx="30.5" cy="43" rx="2.5" ry="1.4" fill="#f43f5e" opacity="0.4" />
+
+                <!-- 智慧项圈与信标铭牌 -->
+                <path d="M34 47.5C35.5 49 39 49.8 41.5 49" stroke="url(#s-tech)" stroke-width="2.6" stroke-linecap="round" />
+                <circle class="lp-collar-beacon" cx="39.5" cy="52" r="2.8" fill="#10b981" />
+                <circle cx="39.5" cy="52" r="1.2" fill="#f0fdf4" />
+              </svg>
+            </div>
+          </div>
+          <div class="lp-brand">
+            <div class="lp-brand-badge">
+              <span class="lp-badge-ping"></span>
+              <span class="lp-badge-text">DIGITAL TWIN · GIS 3D</span>
+            </div>
+            <h1 class="lp-name">数牧空间</h1>
+            <p class="lp-tag">SMART PASTURE 3D MONITORING</p>
+          </div>
+        </div>
+        <div class="lp-status">
+          <span class="loader" aria-hidden="true"></span>
+          <div class="lp-status-badge">
+            <span class="lp-radar-indicator" aria-hidden="true">
+              <span class="lp-radar-core"></span>
+              <span class="lp-radar-ring"></span>
+            </span>
+            <div class="lp-status-texts">
+              <strong id="loading-title">正在连接天地图</strong>
+              <span id="loading-message">准备卫星影像与地形高程...</span>
+            </div>
+          </div>
+        </div>
+        <div class="lp-progress-section" aria-hidden="true">
+          <div class="lp-progress-info">
+            <span id="loading-step-tag" class="lp-step-tag">系统连接</span>
+            <span id="loading-percent" class="lp-percent">0%</span>
+          </div>
+          <div class="lp-progress">
+            <div id="loading-bar-fill" class="lp-bar-fill" style="width: 0%;">
+              <span class="lp-bar-glow"></span>
+              <span class="lp-bar-sheen"></span>
+              <span class="lp-bar-tip"></span>
+            </div>
+            <span class="lp-bar" style="display:none"></span>
+          </div>
+          <div class="lp-progress-steps">
+            <span class="lp-step-node active" data-step="0"><i class="lp-step-dot"></i><span class="lp-step-text">地图服务</span></span>
+            <span class="lp-step-node" data-step="1"><i class="lp-step-dot"></i><span class="lp-step-text">地形高程</span></span>
+            <span class="lp-step-node" data-step="2"><i class="lp-step-dot"></i><span class="lp-step-text">草场分区</span></span>
+            <span class="lp-step-node" data-step="3"><i class="lp-step-dot"></i><span class="lp-step-text">牲畜光点</span></span>
+            <span class="lp-step-node" data-step="4"><i class="lp-step-dot"></i><span class="lp-step-text">轨迹就绪</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div id="prohibited-modal" class="prohibited-modal" hidden>
+        <div class="prohibited-modal-backdrop"></div>
+        <div class="prohibited-modal-card" role="alertdialog" aria-labelledby="prohibited-modal-title" aria-describedby="prohibited-modal-body">
+          <div class="prohibited-modal-icon">🚫</div>
+          <h2 id="prohibited-modal-title">牲畜进入禁牧区</h2>
+          <p id="prohibited-modal-body"></p>
+          <div class="prohibited-modal-actions">
+            <button id="prohibited-modal-detail" type="button">查看详情</button>
+            <button id="prohibited-modal-dismiss" type="button" class="primary">知道了</button>
+          </div>
+        </div>
+      </div>
+
+      <footer class="statusbar">
+        <span><i id="service-dot" class="service-dot"></i><span id="service-status">地图服务连接中</span></span>
+        <span>中心 102.000°E / 33.000°N</span>
+        <span>左键旋转 · 滚轮缩放 · 右键平移</span>
+      </footer>
+    </main>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

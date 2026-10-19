@@ -123,11 +123,34 @@
       <div id="scene-tooltip" class="scene-tooltip" role="status" hidden></div>
 
       <div id="loading-panel" class="loading-panel">
+        <div class="lp-aurora lp-aurora-1" aria-hidden="true"></div>
+        <div class="lp-aurora lp-aurora-2" aria-hidden="true"></div>
         <div class="lp-grid" aria-hidden="true"></div>
+        <div class="lp-radar-sweep" aria-hidden="true"></div>
+        <div class="lp-particles" aria-hidden="true">
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+        </div>
+
+        <!-- 四角 HUD 科技瞄准框 -->
+        <div class="lp-hud-corners" aria-hidden="true">
+          <span class="lp-corner lp-corner--tl"></span>
+          <span class="lp-corner lp-corner--tr"></span>
+          <span class="lp-corner lp-corner--bl"></span>
+          <span class="lp-corner lp-corner--br"></span>
+        </div>
+        <!-- 顶部 HUD 遥测标识 -->
+        <div class="lp-hud-header" aria-hidden="true">
+          <div class="lp-hud-chip"><span class="lp-hud-pulse"></span> 3D DIGITAL TWIN SYSTEM</div>
+          <div class="lp-hud-coords">102.000°E · 33.000°N · ALT 3,450M</div>
+        </div>
+
         <div class="lp-stage">
           <div class="lp-emblem" aria-hidden="true">
-            <span class="lp-orbit"></span>
+            <div class="lp-glow-aura"></div>
+            <span class="lp-orbit lp-orbit-outer"></span>
+            <span class="lp-orbit lp-orbit-inner"><span class="lp-orbit-satellite"></span></span>
             <div class="lp-emblem-card">
+              <div class="lp-card-sheen"></div>
               <svg class="lp-glyph" viewBox="0 0 84 84" width="86" height="86" focusable="false" aria-hidden="true">
                 <defs>
                   <linearGradient id="s-wool" x1="20" y1="16" x2="68" y2="64" gradientUnits="userSpaceOnUse">
@@ -154,9 +177,9 @@
                 </defs>
 
                 <!-- IoT 卫星与射频信号波束 -->
-                <path d="M57 18C63 22 66 28 66 34" stroke="url(#s-tech)" stroke-width="2.4" stroke-linecap="round" opacity="0.9" />
-                <path d="M63 12C72 17 76 25 76 34" stroke="url(#s-tech)" stroke-width="2.4" stroke-linecap="round" opacity="0.45" />
-                <circle cx="51" cy="25" r="2.5" fill="#38bdf8" />
+                <path class="lp-signal-wave lp-wave-1" d="M57 18C63 22 66 28 66 34" stroke="url(#s-tech)" stroke-width="2.4" stroke-linecap="round" opacity="0.9" />
+                <path class="lp-signal-wave lp-wave-2" d="M63 12C72 17 76 25 76 34" stroke="url(#s-tech)" stroke-width="2.4" stroke-linecap="round" opacity="0.45" />
+                <circle class="lp-satellite-beacon" cx="51" cy="25" r="2.5" fill="#38bdf8" />
 
                 <!-- 稳健四蹄 -->
                 <rect x="30" y="55" width="5.5" height="12" rx="2.5" fill="#cbd5e1" />
@@ -171,10 +194,10 @@
                 <path d="M31 56C23 56 17 50.5 17 43C17 37.5 20.2 33 25 31.2C24.2 27 26 22.8 29.8 20.5C34 18 39.5 18.5 43.5 21.5C46.5 18.5 51.2 17.8 55.2 19.5C60 21.8 63 26.5 63 31.8C67.5 33.5 70.5 38 70.5 43C70.5 50.2 65 56 58 56C56 56 54.2 55.4 52.8 54.5C50.8 55.5 48.5 56 46 56H31Z" fill="url(#s-wool)" stroke="rgba(255,255,255,0.7)" stroke-width="1.4" />
 
                 <!-- 灵动金角 -->
-                <path d="M28 24C26 21 21 21 19 24C17.5 26.5 19 30 22 31C24 31.5 26 30 26 28C26 26.5 24.5 25.5 23 26" stroke="url(#s-horn)" stroke-width="2.5" stroke-linecap="round" />
+                <path class="lp-horn" d="M28 24C26 21 21 21 19 24C17.5 26.5 19 30 22 31C24 31.5 26 30 26 28C26 26.5 24.5 25.5 23 26" stroke="url(#s-horn)" stroke-width="2.5" stroke-linecap="round" />
 
                 <!-- 垂耳 -->
-                <path d="M22 35C17.5 35 15 40 16 44C17.2 47 21 47.5 23.5 44L25 38C24.5 36.5 23.2 35 22 35Z" fill="url(#s-ear)" />
+                <path class="lp-ear" d="M22 35C17.5 35 15 40 16 44C17.2 47 21 47.5 23.5 44L25 38C24.5 36.5 23.2 35 22 35Z" fill="url(#s-ear)" />
 
                 <!-- 头部 -->
                 <path d="M25 31C18.5 33.5 17.5 42 21 46.5C24 50 31 51 34.5 47.5C38 44 38.5 37 35 32.5C32 29.5 28 29.8 25 31Z" fill="url(#s-face)" />
@@ -193,22 +216,54 @@
 
                 <!-- 智慧项圈与信标铭牌 -->
                 <path d="M34 47.5C35.5 49 39 49.8 41.5 49" stroke="url(#s-tech)" stroke-width="2.6" stroke-linecap="round" />
-                <circle cx="39.5" cy="52" r="2.8" fill="#10b981" />
+                <circle class="lp-collar-beacon" cx="39.5" cy="52" r="2.8" fill="#10b981" />
                 <circle cx="39.5" cy="52" r="1.2" fill="#f0fdf4" />
               </svg>
             </div>
           </div>
           <div class="lp-brand">
+            <div class="lp-brand-badge">
+              <span class="lp-badge-ping"></span>
+              <span class="lp-badge-text">DIGITAL TWIN · GIS 3D</span>
+            </div>
             <h1 class="lp-name">数牧空间</h1>
-            <p class="lp-tag">SHUMU SPACE · 3D MONITORING</p>
+            <p class="lp-tag">SMART PASTURE 3D MONITORING</p>
           </div>
         </div>
         <div class="lp-status">
           <span class="loader" aria-hidden="true"></span>
-          <strong id="loading-title">正在连接天地图</strong>
-          <span id="loading-message">准备卫星影像与地形高程...</span>
+          <div class="lp-status-badge">
+            <span class="lp-radar-indicator" aria-hidden="true">
+              <span class="lp-radar-core"></span>
+              <span class="lp-radar-ring"></span>
+            </span>
+            <div class="lp-status-texts">
+              <strong id="loading-title">正在连接天地图</strong>
+              <span id="loading-message">准备卫星影像与地形高程...</span>
+            </div>
+          </div>
         </div>
-        <div class="lp-progress" aria-hidden="true"><span class="lp-bar"></span></div>
+        <div class="lp-progress-section" aria-hidden="true">
+          <div class="lp-progress-info">
+            <span id="loading-step-tag" class="lp-step-tag">系统连接</span>
+            <span id="loading-percent" class="lp-percent">0%</span>
+          </div>
+          <div class="lp-progress">
+            <div id="loading-bar-fill" class="lp-bar-fill" style="width: 0%;">
+              <span class="lp-bar-glow"></span>
+              <span class="lp-bar-sheen"></span>
+              <span class="lp-bar-tip"></span>
+            </div>
+            <span class="lp-bar" style="display:none"></span>
+          </div>
+          <div class="lp-progress-steps">
+            <span class="lp-step-node active" data-step="0"><i class="lp-step-dot"></i><span class="lp-step-text">地图服务</span></span>
+            <span class="lp-step-node" data-step="1"><i class="lp-step-dot"></i><span class="lp-step-text">地形高程</span></span>
+            <span class="lp-step-node" data-step="2"><i class="lp-step-dot"></i><span class="lp-step-text">草场分区</span></span>
+            <span class="lp-step-node" data-step="3"><i class="lp-step-dot"></i><span class="lp-step-text">牲畜光点</span></span>
+            <span class="lp-step-node" data-step="4"><i class="lp-step-dot"></i><span class="lp-step-text">轨迹就绪</span></span>
+          </div>
+        </div>
       </div>
 
       <div id="prohibited-modal" class="prohibited-modal" hidden>
